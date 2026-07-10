@@ -111,8 +111,10 @@ const ChatInputArea: React.FC<Props> = ({
             />
           </Box>
         ) : (
-          <FormControl size="small" sx={{ minWidth: 220, mb: 1.25 }}>
-            <InputLabel id="chat-base-category-label">Base</InputLabel>
+          <FormControl size="small" sx={{ minWidth: 200, mb: 1 }}>
+            <InputLabel id="chat-base-category-label" sx={{ fontSize: "0.78rem" }}>
+              Base
+            </InputLabel>
             <Select
               labelId="chat-base-category-label"
               multiple
@@ -127,18 +129,20 @@ const ChatInputArea: React.FC<Props> = ({
                       .join(", ")
               }
               sx={{
-                fontSize: "0.82rem",
+                fontSize: "0.78rem",
                 bgcolor: "rgba(255,255,255,0.02)",
+                "& .MuiSelect-select": { py: 0.5 },
               }}
+              MenuProps={{ MenuListProps: { dense: true } }}
             >
-              <MenuItem value={ALL_CATEGORIES}>
+              <MenuItem value={ALL_CATEGORIES} dense sx={{ fontSize: "0.78rem" }}>
                 <Checkbox checked={selectedCategories.length === 0} size="small" />
-                <ListItemText primary="Todas" />
+                <ListItemText primary="Todas" primaryTypographyProps={{ fontSize: "0.78rem" }} />
               </MenuItem>
               {contextCategories.map((cat) => (
-                <MenuItem key={cat.id} value={cat.name}>
+                <MenuItem key={cat.id} value={cat.name} dense sx={{ fontSize: "0.78rem" }}>
                   <Checkbox checked={selectedCategories.includes(cat.name)} size="small" />
-                  <ListItemText primary={cat.label} />
+                  <ListItemText primary={cat.label} primaryTypographyProps={{ fontSize: "0.78rem" }} />
                 </MenuItem>
               ))}
             </Select>

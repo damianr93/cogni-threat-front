@@ -129,7 +129,9 @@ const ContextSidebar: React.FC<Props> = ({
 
       <Box sx={{ px: 1.5, pb: 1 }}>
         <FormControl size="small" fullWidth>
-          <InputLabel id="context-browse-category-label">Categoría</InputLabel>
+          <InputLabel id="context-browse-category-label" sx={{ fontSize: "0.8rem" }}>
+            Categoría
+          </InputLabel>
           <Select
             labelId="context-browse-category-label"
             value={browseCategory}
@@ -138,11 +140,17 @@ const ContextSidebar: React.FC<Props> = ({
             renderValue={(selected) =>
               !selected ? "Todas" : categories.find((c) => c.name === selected)?.label ?? selected
             }
-            sx={{ fontSize: "0.8rem" }}
+            sx={{
+              fontSize: "0.8rem",
+              "& .MuiSelect-select": { py: 0.75 },
+            }}
+            MenuProps={{ MenuListProps: { dense: true } }}
           >
-            <MenuItem value="">Todas</MenuItem>
+            <MenuItem value="" sx={{ fontSize: "0.8rem" }}>
+              Todas
+            </MenuItem>
             {categories.map((cat) => (
-              <MenuItem key={cat.id} value={cat.name}>
+              <MenuItem key={cat.id} value={cat.name} sx={{ fontSize: "0.8rem" }}>
                 {cat.label}
               </MenuItem>
             ))}
