@@ -150,6 +150,8 @@ const RansomwareGroupsDashboard: React.FC = () => {
   const [selectedGroup, setSelectedGroup] = useState<GroupDetails | null>(null);
   const [groupAttacks, setGroupAttacks] = useState<GroupAttack[]>([]);
   const [groupAttacksLoading, setGroupAttacksLoading] = useState(false);
+  const [groupRefreshLoading, setGroupRefreshLoading] = useState(false);
+  const [groupRefreshError, setGroupRefreshError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"group" | "victims" | "lastseen">("victims");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -185,6 +187,7 @@ const RansomwareGroupsDashboard: React.FC = () => {
 
   const handleGroupClick = async (groupName: string) => {
     setGroupAttacksLoading(true);
+    setGroupRefreshError(null);
     try {
       // Fetch group details
       const detailsResponse = await api.get(`/dashboard/group-details?groupName=${encodeURIComponent(groupName)}`);
@@ -201,6 +204,26 @@ const RansomwareGroupsDashboard: React.FC = () => {
       console.error("Error fetching group data:", error);
     } finally {
       setGroupAttacksLoading(false);
+    }
+  };
+
+  const handleRefreshSelectedGroup = async () => {
+    if (!selectedGroup?.group) return;
+    setGroupRefreshLoading(true);
+    setGroupRefreshError(null);
+    try {
+      const response = await api.post(`/dashboard/group-details/refresh?groupName=${encodeURIComponent(selectedGroup.group)}`);
+      if (response.data.success && response.data.data) {
+        setSelectedGroup(response.data.data);
+        dispatch(fetchAllGroups());
+        dispatch(fetchRansomwareStats());
+        return;
+      }
+      setGroupRefreshError(response.data.error || "No se pudo actualizar el grupo desde ransomware.live");
+    } catch (error: any) {
+      setGroupRefreshError(error?.response?.data?.message || "No se pudo actualizar el grupo desde ransomware.live");
+    } finally {
+      setGroupRefreshLoading(false);
     }
   };
 
@@ -663,6 +686,11 @@ const RansomwareGroupsDashboard: React.FC = () => {
                     AKA: {selectedGroup.altname}
                   </Typography>
                 )}
+                {selectedGroup?.updatedAt && (
+                  <Typography variant="caption" sx={{ ...wrapTextSx, color: "rgba(255, 255, 255, 0.45)" }}>
+                    Última actualización local: {new Date(selectedGroup.updatedAt).toLocaleString()}
+                  </Typography>
+                )}
               </Box>
             </Stack>
             <IconButton
@@ -677,6 +705,11 @@ const RansomwareGroupsDashboard: React.FC = () => {
           </Stack>
         </DialogTitle>
         <DialogContent dividers sx={{ minWidth: 0, overflowX: "hidden", p: { xs: 2, sm: 3 } }}>
+          {groupRefreshError ? (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              {groupRefreshError}
+            </Alert>
+          ) : null}
           {groupAttacksLoading ? (
             <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
               <CircularProgress sx={{ color: "#ef4444" }} />
@@ -898,6 +931,19 @@ const RansomwareGroupsDashboard: React.FC = () => {
                     </Typography>
                   </Stack>
                   <Stack spacing={2}>
+                    <Button
+                      onClick={handleRefreshSelectedGroup}
+                      startIcon={groupRefreshLoading ? <CircularProgress size={16} color="inherit" /> : <Sync />}
+                      disabled={groupRefreshLoading || !selectedGroup?.group}
+                      sx={{
+                        alignSelf: "flex-start",
+                        color: "#ef4444",
+                        fontFamily: '"Rajdhani", sans-serif',
+                        fontWeight: 600
+                      }}
+                    >
+                      {groupRefreshLoading ? "Actualizando..." : "Actualizar desde API"}
+                    </Button>
                     {selectedGroup?.url && (
                       <Box>
                         <Typography variant="body2" sx={{ color: "rgba(255, 255, 255, 0.5)", mb: 0.5 }}>
