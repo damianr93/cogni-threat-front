@@ -32,7 +32,8 @@ import {
   Link,
   Grid,
   Snackbar,
-  LinearProgress
+  LinearProgress,
+  Tooltip
 } from "@mui/material";
 import {
   Groups,
@@ -931,19 +932,26 @@ const RansomwareGroupsDashboard: React.FC = () => {
                     </Typography>
                   </Stack>
                   <Stack spacing={2}>
-                    <Button
-                      onClick={handleRefreshSelectedGroup}
-                      startIcon={groupRefreshLoading ? <CircularProgress size={16} color="inherit" /> : <Sync />}
-                      disabled={groupRefreshLoading || !selectedGroup?.group}
-                      sx={{
-                        alignSelf: "flex-start",
-                        color: "#ef4444",
-                        fontFamily: '"Rajdhani", sans-serif',
-                        fontWeight: 600
-                      }}
-                    >
-                      {groupRefreshLoading ? "Actualizando..." : "Actualizar desde API"}
-                    </Button>
+                    <Box sx={{ alignSelf: "flex-start" }}>
+                      <Tooltip title={groupRefreshLoading ? "Actualizando desde ransomware.live" : "Actualizar desde API"}>
+                        <span>
+                          <IconButton
+                            onClick={handleRefreshSelectedGroup}
+                            disabled={groupRefreshLoading || !selectedGroup?.group}
+                            size="small"
+                            sx={{
+                              color: "#ef4444",
+                              bgcolor: "rgba(239, 68, 68, 0.08)",
+                              border: "1px solid rgba(239, 68, 68, 0.28)",
+                              "&:hover": { bgcolor: "rgba(239, 68, 68, 0.16)" },
+                              "&.Mui-disabled": { color: "rgba(239, 68, 68, 0.45)" },
+                            }}
+                          >
+                            {groupRefreshLoading ? <CircularProgress size={18} color="inherit" /> : <Sync fontSize="small" />}
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </Box>
                     {selectedGroup?.url && (
                       <Box>
                         <Typography variant="body2" sx={{ color: "rgba(255, 255, 255, 0.5)", mb: 0.5 }}>
