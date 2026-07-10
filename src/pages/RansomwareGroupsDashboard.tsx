@@ -7,6 +7,9 @@ import {
   CardContent,
   CircularProgress,
   Alert,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
   Chip,
   Stack,
   Avatar,
@@ -46,7 +49,8 @@ import {
   ArrowUpward,
   ArrowDownward,
   SortByAlpha,
-  Sync
+  Sync,
+  ExpandMore
 } from "@mui/icons-material";
 import { useAppDispatch } from "../shared/hooks/useAppDispatch";
 import { useAppSelector } from "../shared/hooks/useAppSelector";
@@ -84,6 +88,30 @@ interface GroupDetails {
   createdAt: string;
   updatedAt: string;
 }
+
+
+const wrapTextSx = { minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" } as const;
+
+const wrapChipSx = {
+  maxWidth: "100%",
+  height: "auto",
+  alignItems: "flex-start",
+  "& .MuiChip-label": {
+    display: "block",
+    whiteSpace: "normal",
+    overflowWrap: "anywhere",
+    lineHeight: 1.35,
+    py: 0.35,
+  },
+} as const;
+
+const detailAccordionSx = {
+  bgcolor: "rgba(15, 23, 42, 0.6)",
+  border: "1px solid rgba(239, 68, 68, 0.18)",
+  borderRadius: "12px !important",
+  overflow: "hidden",
+  "&:before": { display: "none" },
+} as const;
 
 interface GroupAttack {
   id: string;
@@ -598,15 +626,18 @@ const RansomwareGroupsDashboard: React.FC = () => {
         fullWidth
         PaperProps={{
           sx: {
+            width: { xs: "calc(100vw - 16px)", sm: "min(1180px, calc(100vw - 48px))" },
+            maxWidth: "100vw",
+            maxHeight: "calc(100vh - 24px)",
+            overflow: "hidden",
             bgcolor: "background.default",
-            borderRadius: 3
-            
+            borderRadius: 3,
           }
         }}
       >
-        <DialogTitle>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Stack direction="row" alignItems="center" spacing={2}>
+        <DialogTitle sx={{ p: { xs: 2, sm: 3 } }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ minWidth: 0 }}>
+            <Stack direction="row" alignItems="center" spacing={2} sx={{ minWidth: 0 }}>
               <Avatar
                 sx={{
                   width: 56,
@@ -616,11 +647,11 @@ const RansomwareGroupsDashboard: React.FC = () => {
               >
                 <Groups sx={{ color: "#ef4444" }} />
               </Avatar>
-              <Box>
+              <Box sx={{ minWidth: 0 }}>
                 <Typography
                   variant="h4"
                   sx={{
-
+                    ...wrapTextSx,
                     fontWeight: 700,
                     color: "#ef4444"
                   }}
@@ -628,7 +659,7 @@ const RansomwareGroupsDashboard: React.FC = () => {
                   {selectedGroup?.group}
                 </Typography>
                 {selectedGroup?.altname && (
-                  <Typography variant="body2" sx={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                  <Typography variant="body2" sx={{ ...wrapTextSx, color: "rgba(255, 255, 255, 0.6)" }}>
                     AKA: {selectedGroup.altname}
                   </Typography>
                 )}
@@ -645,7 +676,7 @@ const RansomwareGroupsDashboard: React.FC = () => {
             </IconButton>
           </Stack>
         </DialogTitle>
-        <DialogContent dividers>
+        <DialogContent dividers sx={{ minWidth: 0, overflowX: "hidden", p: { xs: 2, sm: 3 } }}>
           {groupAttacksLoading ? (
             <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
               <CircularProgress sx={{ color: "#ef4444" }} />
@@ -781,7 +812,7 @@ const RansomwareGroupsDashboard: React.FC = () => {
                       border: "1px solid rgba(239, 68, 68, 0.2)"
                     }}
                   >
-                    <Typography variant="body1" sx={{ whiteSpace: "pre-wrap", color: "white" }}>
+                    <Typography variant="body1" sx={{ ...wrapTextSx, whiteSpace: "pre-wrap", color: "white" }}>
                       {selectedGroup.description}
                     </Typography>
                   </Paper>
@@ -927,71 +958,65 @@ const RansomwareGroupsDashboard: React.FC = () => {
               </Grid>
 
               {/* TTPs and Vulnerabilities */}
-              <Stack direction={{ xs: "column", md: "row" }} spacing={3} sx={{ mb: 3 }}>
+              <Stack spacing={2} sx={{ mb: 3, minWidth: 0 }}>
                 {selectedGroup?.ttps && selectedGroup.ttps.length > 0 && (
-                  <Box sx={{ flex: 1 }}>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                      <Warning sx={{ color: "#ef4444", fontSize: 20 }} />
-                      <Typography
-                        variant="h6"
-                        sx={{
-
-                          fontWeight: 700,
-                          color: "#ef4444"
-                        }}
-                      >
-                        TTPs
-                      </Typography>
-                    </Stack>
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                      {selectedGroup.ttps.map((ttp, idx) => (
-                        <Chip
-                          key={idx}
-                          label={ttp}
-                          size="small"
-                          sx={{
-                            bgcolor: "rgba(59, 130, 246, 0.2)",
-                            color: "#3b82f6",
-                            border: "1px solid rgba(59, 130, 246, 0.3)"
-                            
-                          }}
-                        />
-                      ))}
-                    </Box>
-                  </Box>
+                  <Accordion defaultExpanded disableGutters sx={detailAccordionSx}>
+                    <AccordionSummary expandIcon={<ExpandMore sx={{ color: "#ef4444" }} />}>
+                      <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+                        <Warning sx={{ color: "#ef4444", fontSize: 20 }} />
+                        <Typography variant="h6" sx={{ ...wrapTextSx, fontWeight: 700, color: "#ef4444" }}>
+                          TTPs ({selectedGroup.ttps.length})
+                        </Typography>
+                      </Stack>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, minWidth: 0 }}>
+                        {selectedGroup.ttps.map((ttp, idx) => (
+                          <Chip
+                            key={idx}
+                            label={ttp}
+                            size="small"
+                            sx={{
+                              ...wrapChipSx,
+                              bgcolor: "rgba(59, 130, 246, 0.2)",
+                              color: "#3b82f6",
+                              border: "1px solid rgba(59, 130, 246, 0.3)",
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    </AccordionDetails>
+                  </Accordion>
                 )}
 
                 {selectedGroup?.vulnerabilities && selectedGroup.vulnerabilities.length > 0 && (
-                  <Box sx={{ flex: 1 }}>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                      <Security sx={{ color: "#ef4444", fontSize: 20 }} />
-                      <Typography
-                        variant="h6"
-                        sx={{
-
-                          fontWeight: 700,
-                          color: "#ef4444"
-                        }}
-                      >
-                        VULNERABILITIES
-                      </Typography>
-                    </Stack>
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                      {selectedGroup.vulnerabilities.map((vuln, idx) => (
-                        <Chip
-                          key={idx}
-                          label={vuln}
-                          size="small"
-                          sx={{
-                            bgcolor: "rgba(239, 68, 68, 0.2)",
-                            color: "#ef4444",
-                            border: "1px solid rgba(239, 68, 68, 0.3)"
-                            
-                          }}
-                        />
-                      ))}
-                    </Box>
-                  </Box>
+                  <Accordion defaultExpanded disableGutters sx={detailAccordionSx}>
+                    <AccordionSummary expandIcon={<ExpandMore sx={{ color: "#ef4444" }} />}>
+                      <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+                        <Security sx={{ color: "#ef4444", fontSize: 20 }} />
+                        <Typography variant="h6" sx={{ ...wrapTextSx, fontWeight: 700, color: "#ef4444" }}>
+                          VULNERABILITIES ({selectedGroup.vulnerabilities.length})
+                        </Typography>
+                      </Stack>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, minWidth: 0 }}>
+                        {selectedGroup.vulnerabilities.map((vuln, idx) => (
+                          <Chip
+                            key={idx}
+                            label={vuln}
+                            size="small"
+                            sx={{
+                              ...wrapChipSx,
+                              bgcolor: "rgba(239, 68, 68, 0.2)",
+                              color: "#ef4444",
+                              border: "1px solid rgba(239, 68, 68, 0.3)",
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    </AccordionDetails>
+                  </Accordion>
                 )}
               </Stack>
 
@@ -1023,7 +1048,10 @@ const RansomwareGroupsDashboard: React.FC = () => {
                       component="pre"
                       sx={{
                         
+                        maxWidth: "100%",
                         overflow: "auto",
+                        whiteSpace: "pre-wrap",
+                        overflowWrap: "anywhere",
                         color: "white",
                         fontSize: "0.85rem"
                       }}
@@ -1057,10 +1085,12 @@ const RansomwareGroupsDashboard: React.FC = () => {
                       sx={{
                         bgcolor: "rgba(59, 130, 246, 0.05)",
                         border: "1px solid rgba(59, 130, 246, 0.2)",
-                        maxHeight: 300
+                        maxHeight: 300,
+                        maxWidth: "100%",
+                        overflowX: "auto"
                       }}
                     >
-                      <Table size="small" stickyHeader>
+                      <Table size="small" stickyHeader sx={{ minWidth: { xs: 720, md: "100%" } }}>
                         <TableHead>
                           <TableRow sx={{ bgcolor: "rgba(59, 130, 246, 0.1)" }}>
                             <TableCell sx={{ fontWeight: 700, color: "#3b82f6" }}>FQDN</TableCell>
@@ -1086,7 +1116,7 @@ const RansomwareGroupsDashboard: React.FC = () => {
                                 </Typography>
                               </TableCell>
                               <TableCell>
-                                <Typography variant="body2" sx={{ color: "white" }}>
+                                <Typography variant="body2" sx={{ ...wrapTextSx, color: "white" }}>
                                   {location.title || "N/A"}
                                 </Typography>
                               </TableCell>
@@ -1151,10 +1181,12 @@ const RansomwareGroupsDashboard: React.FC = () => {
                   sx={{
                     bgcolor: "rgba(15, 23, 42, 0.6)",
                     border: "1px solid rgba(239, 68, 68, 0.2)",
-                    maxHeight: 400
+                    maxHeight: 400,
+                    maxWidth: "100%",
+                    overflowX: "auto"
                   }}
                 >
-                  <Table size="small" stickyHeader>
+                  <Table size="small" stickyHeader sx={{ minWidth: { xs: 760, md: "100%" } }}>
                     <TableHead>
                       <TableRow sx={{ bgcolor: "rgba(239, 68, 68, 0.1)" }}>
                         <TableCell sx={{ fontWeight: 700, color: "#ef4444" }}>VICTIM</TableCell>
@@ -1177,7 +1209,7 @@ const RansomwareGroupsDashboard: React.FC = () => {
                         groupAttacks.map((attack) => (
                           <TableRow key={attack.id} hover>
                             <TableCell>
-                              <Typography variant="body2" sx={{ fontWeight: 600, color: "white" }}>
+                              <Typography variant="body2" sx={{ ...wrapTextSx, fontWeight: 600, color: "white" }}>
                                 {attack.victim}
                               </Typography>
                             </TableCell>
@@ -1192,7 +1224,7 @@ const RansomwareGroupsDashboard: React.FC = () => {
                               />
                             </TableCell>
                             <TableCell>
-                              <Typography variant="body2" sx={{ color: "rgba(255, 255, 255, 0.7)" }}>
+                              <Typography variant="body2" sx={{ ...wrapTextSx, color: "rgba(255, 255, 255, 0.7)" }}>
                                 {attack.activity || "N/A"}
                               </Typography>
                             </TableCell>
@@ -1223,7 +1255,7 @@ const RansomwareGroupsDashboard: React.FC = () => {
             </>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: "1px solid rgba(239, 68, 68, 0.2)" }}>
+        <DialogActions sx={{ p: 2, borderTop: "1px solid rgba(239, 68, 68, 0.2)", flexWrap: "wrap", gap: 1 }}>
           {selectedGroup?.url && (
             <Button
               href={selectedGroup.url}

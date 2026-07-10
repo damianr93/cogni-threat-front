@@ -157,6 +157,7 @@ export const theme = createTheme({
     MuiChip: {
       styleOverrides: {
         root: {
+          maxWidth: '100%',
           borderRadius: 4,
           fontWeight: 500,
           fontSize: '0.75rem',

@@ -86,6 +86,21 @@ const treatmentOptions: TreatmentOption[] = ["MITIGATE", "ACCEPT", "TRANSFER", "
 const treatmentStatuses: TreatmentStatus[] = ["PLANNED", "IN_PROGRESS", "IMPLEMENTED", "VERIFIED"];
 const scoreOptions = [1, 2, 3, 4, 5];
 
+const wrapTextSx = { minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" } as const;
+
+const wrapChipSx = {
+  maxWidth: "100%",
+  height: "auto",
+  alignItems: "flex-start",
+  "& .MuiChip-label": {
+    display: "block",
+    whiteSpace: "normal",
+    overflowWrap: "anywhere",
+    lineHeight: 1.35,
+    py: 0.35,
+  },
+} as const;
+
 interface AdminUserOption {
   id: string;
   email: string;
@@ -312,8 +327,9 @@ const RiskOperationsPage = ({ kind }: RiskOperationsPageProps) => {
 
 const formGridSx = {
   display: "grid",
-  gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
+  gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))" },
   gap: 2,
+  minWidth: 0,
 };
 
 const FormDrawer = ({
@@ -333,20 +349,25 @@ const FormDrawer = ({
   onSave: () => void;
   saveLabel?: string;
 }) => (
-  <Drawer anchor="right" open={open} onClose={onClose} PaperProps={{ sx: { width: { xs: "100%", sm: 560 }, bgcolor: "#0c1220" } }}>
-    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 2.5 }}>
-        <Box>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>{title}</Typography>
-          <Typography variant="caption" color="text.secondary">Completá solo lo necesario y guardá sin salir de la lista.</Typography>
+  <Drawer
+    anchor="right"
+    open={open}
+    onClose={onClose}
+    PaperProps={{ sx: { width: { xs: "100vw", sm: 560 }, maxWidth: "100vw", bgcolor: "#0c1220", overflowX: "hidden" } }}
+  >
+    <Box sx={{ height: "100%", display: "flex", flexDirection: "column", minWidth: 0, overflowX: "hidden" }}>
+      <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1.5} sx={{ p: { xs: 2, sm: 2.5 }, minWidth: 0 }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="h6" sx={{ ...wrapTextSx, fontWeight: 700 }}>{title}</Typography>
+          <Typography variant="caption" color="text.secondary" sx={wrapTextSx}>Completá solo lo necesario y guardá sin salir de la lista.</Typography>
         </Box>
-        <IconButton onClick={onClose}><Close /></IconButton>
+        <IconButton onClick={onClose} sx={{ flexShrink: 0 }}><Close /></IconButton>
       </Stack>
       <Divider />
-      <Box sx={{ flex: 1, overflow: "auto", p: 2.5 }}>{children}</Box>
+      <Box sx={{ flex: 1, overflowY: "auto", overflowX: "hidden", p: { xs: 2, sm: 2.5 }, minWidth: 0 }}>{children}</Box>
       <Divider />
-      <Stack direction="row" justifyContent="flex-end" spacing={1.5} sx={{ p: 2 }}>
-        <Button onClick={onClose}>Cancelar</Button>
+      <Stack direction={{ xs: "column-reverse", sm: "row" }} justifyContent="flex-end" spacing={1.5} sx={{ p: 2 }}>
+        <Button onClick={onClose} fullWidth={false}>Cancelar</Button>
         <Button variant="contained" disabled={saving} onClick={onSave}>{saving ? "Guardando..." : saveLabel}</Button>
       </Stack>
     </Box>
@@ -372,7 +393,7 @@ const SummaryCards = ({ kind, data }: { kind: PageKind; data: RiskOperationsData
 };
 
 const RiskViewSwitcher = ({ value, onChange }: { value: "list" | "matrix" | "alerts"; onChange: (value: "list" | "matrix" | "alerts") => void }) => (
-  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+  <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={1.5} sx={{ mb: 2, minWidth: 0 }}>
     <Box>
       <Typography variant="body2" color="text.secondary">
         Alterná entre operación diaria y lectura ejecutiva de criticidad.
@@ -396,7 +417,7 @@ const RiskViewSwitcher = ({ value, onChange }: { value: "list" | "matrix" | "ale
 
 
 const TreatmentViewSwitcher = ({ value, onChange }: { value: "list" | "alerts"; onChange: (value: "list" | "alerts") => void }) => (
-  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+  <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={1.5} sx={{ mb: 2, minWidth: 0 }}>
     <Box>
       <Typography variant="body2" color="text.secondary">
         Revisá planes y alertas vinculadas al activo del riesgo tratado.
@@ -489,7 +510,7 @@ const RiskAlertsPanel = ({ alerts }: { alerts: RiskAlertMatch[] }) => (
             <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1}>
               <Box>
                 <Typography variant="overline" color="text.secondary">{alert.sourceKey ?? alert.serviceSource}</Typography>
-                <Typography variant="h6" fontWeight={800}>{alert.victim || alert.incidentId}</Typography>
+                <Typography variant="h6" fontWeight={800} sx={wrapTextSx}>{alert.victim || alert.incidentId}</Typography>
               </Box>
               <Typography variant="caption" color="text.secondary">
                 {new Date(alert.sentAt ?? alert.createdAt).toLocaleString()}
@@ -502,13 +523,14 @@ const RiskAlertsPanel = ({ alerts }: { alerts: RiskAlertMatch[] }) => (
                   size="small"
                   color="primary"
                   label={`${asset.code} · ${asset.name} (${asset.matchedTags.join(", ")})`}
+                  sx={wrapChipSx}
                 />
               ))}
             </Stack>
-            <Typography component="pre" variant="body2" sx={{ whiteSpace: "pre-wrap", m: 0, p: 1.5, borderRadius: 2, ...softSurfaceSx }}>
+            <Typography component="pre" variant="body2" sx={{ ...wrapTextSx, whiteSpace: "pre-wrap", m: 0, p: 1.5, borderRadius: 2, ...softSurfaceSx }}>
               {truncate(alert.sourceMessage, 900)}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={wrapTextSx}>
               Fuente cruda: {truncate(JSON.stringify(alert.payload), 260)}
             </Typography>
           </Stack>
@@ -547,17 +569,17 @@ const TreatmentAlertsPanel = ({ treatments, alerts }: { treatments: RiskTreatmen
               <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1}>
                 <Box>
                   <Typography variant="overline" color="text.secondary">{TREATMENT_OPTION_LABELS[treatment.strategy]}</Typography>
-                  <Typography variant="h6" fontWeight={800}>{treatment.risk?.title ?? treatment.id}</Typography>
-                  <Typography variant="body2" color="text.secondary">{treatment.risk?.asset?.name ?? "Sin activo vinculado"}</Typography>
+                  <Typography variant="h6" fontWeight={800} sx={wrapTextSx}>{treatment.risk?.title ?? treatment.id}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={wrapTextSx}>{treatment.risk?.asset?.name ?? "Sin activo vinculado"}</Typography>
                 </Box>
-                <Chip size="small" label={`${linkedAlerts.length} alertas`} color={linkedAlerts.length ? "warning" : "default"} />
+                <Chip size="small" label={`${linkedAlerts.length} alertas`} color={linkedAlerts.length ? "warning" : "default"} sx={wrapChipSx} />
               </Stack>
-              <Typography variant="body2">{truncate(treatment.plan, 220)}</Typography>
+              <Typography variant="body2" sx={wrapTextSx}>{truncate(treatment.plan, 220)}</Typography>
               {linkedAlerts.slice(0, 3).map((alert) => (
                 <Box key={`${treatment.id}-${alert.id}`} sx={{ p: 1.5, borderRadius: 2, ...softSurfaceSx }}>
                   <Typography variant="caption" color="text.secondary">{alert.sourceKey ?? alert.serviceSource}</Typography>
-                  <Typography variant="body2" fontWeight={700}>{alert.victim || alert.incidentId}</Typography>
-                  <Typography variant="caption" color="text.secondary">{truncate(alert.sourceMessage, 220)}</Typography>
+                  <Typography variant="body2" fontWeight={700} sx={wrapTextSx}>{alert.victim || alert.incidentId}</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={wrapTextSx}>{truncate(alert.sourceMessage, 220)}</Typography>
                 </Box>
               ))}
             </Stack>
@@ -674,7 +696,7 @@ function renderForm(
 
 function field(name: string, label: string, form: Record<string, string>, update: (field: string, value: string) => void, options?: Array<{ value: string; label: string }>, type = "text", disabled = false) {
   return (
-    <Box key={name}>
+    <Box key={name} sx={{ minWidth: 0 }}>
       <TextField fullWidth size="small" select={Boolean(options)} type={type} label={label} value={form[name] ?? ""} disabled={disabled} onChange={(event) => update(name, event.target.value)} InputLabelProps={type === "date" ? { shrink: true } : undefined}>
         {options?.map((option) => <MenuItem key={option.value || "empty"} value={option.value}>{option.label}</MenuItem>)}
       </TextField>
@@ -685,7 +707,7 @@ function field(name: string, label: string, form: Record<string, string>, update
 /** Multiline text field, styled the same way the previous "Contexto" (businessContext) field used to be. */
 function descriptionField(name: string, label: string, form: Record<string, string>, update: (field: string, value: string) => void) {
   return (
-    <Box key={name} sx={{ gridColumn: { xs: "1", sm: "1 / -1" } }}>
+    <Box key={name} sx={{ gridColumn: { xs: "1", sm: "1 / -1" }, minWidth: 0 }}>
       <TextField fullWidth multiline rows={3} size="small" label={label} value={form[name] ?? ""} onChange={(event) => update(name, event.target.value)} />
     </Box>
   );
@@ -694,7 +716,7 @@ function descriptionField(name: string, label: string, form: Record<string, stri
 /** CIA rating select — 1 to 5, plain MenuItem options (no existing severity-label convention fit this numeric 1-5 case). */
 function ciaField(name: string, label: string, form: Record<string, string>, update: (field: string, value: string) => void) {
   return (
-    <Box key={name}>
+    <Box key={name} sx={{ minWidth: 0 }}>
       <FormControl fullWidth size="small">
         <InputLabel id={`${name}-label`}>{label}</InputLabel>
         <Select labelId={`${name}-label`} label={label} value={form[name] ?? "3"} onChange={(event) => update(name, String(event.target.value))}>
@@ -708,7 +730,7 @@ function ciaField(name: string, label: string, form: Record<string, string>, upd
 /** Risk score select — keeps probability/impact constrained to the 1..5 matrix scale. */
 function scoreField(name: string, label: string, form: Record<string, string>, update: (field: string, value: string) => void) {
   return (
-    <Box key={name}>
+    <Box key={name} sx={{ minWidth: 0 }}>
       <FormControl fullWidth size="small">
         <InputLabel id={`${name}-label`}>{label}</InputLabel>
         <Select labelId={`${name}-label`} label={label} value={form[name] ?? "3"} onChange={(event) => update(name, String(event.target.value))}>
@@ -735,7 +757,7 @@ function ownerField(
   const hasCurrentValueInOptions = !selectValue || adminUsers.some((user) => user.email === selectValue);
 
   return (
-    <Box key={name}>
+    <Box key={name} sx={{ minWidth: 0 }}>
       <FormControl fullWidth size="small" disabled={adminUsersLoading}>
         <InputLabel id={`${name}-label`}>{label}</InputLabel>
         <Select
@@ -769,13 +791,13 @@ function optionalScoreField(name: string, label: string, form: Record<string, st
 function renderTable(kind: PageKind, data: RiskOperationsData, onEdit: (row: InformationAsset | Risk | RiskTreatment | OperationalControl | Kpi) => void) {
   const rows = data[kind];
   return (
-    <TableContainer component={Paper} sx={surfaceSx}>
-      <Table size="small">
+    <TableContainer component={Paper} sx={{ ...surfaceSx, maxWidth: "100%", overflowX: "auto" }}>
+      <Table size="small" sx={{ minWidth: { xs: 680, md: "100%" } }}>
         <TableHead><TableRow>{[...tableHeaders(kind), ""].map((header) => <TableCell key={header}>{header}</TableCell>)}</TableRow></TableHead>
         <TableBody>
           {rows.map((row) => (
             <TableRow key={row.id} hover>
-              {tableCells(kind, row).map((cell, index) => <TableCell key={`${row.id}-${index}`}>{cell}</TableCell>)}
+              {tableCells(kind, row).map((cell, index) => <TableCell key={`${row.id}-${index}`} sx={{ maxWidth: { xs: 220, md: 320 }, verticalAlign: "top", ...wrapTextSx }}>{cell}</TableCell>)}
               <TableCell align="right">
                 <Button size="small" startIcon={<Edit />} onClick={() => onEdit(row)}>
                   Editar

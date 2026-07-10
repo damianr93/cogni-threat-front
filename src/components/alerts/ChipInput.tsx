@@ -9,6 +9,20 @@ interface ChipInputProps {
   onChange: (values: string[]) => void;
 }
 
+const chipSx = {
+  maxWidth: "100%",
+  height: "auto",
+  alignItems: "flex-start",
+  mb: 1,
+  "& .MuiChip-label": {
+    display: "block",
+    whiteSpace: "normal",
+    overflowWrap: "anywhere",
+    lineHeight: 1.35,
+    py: 0.35,
+  },
+} as const;
+
 const ChipInput: React.FC<ChipInputProps> = ({
   label,
   values,
@@ -30,17 +44,17 @@ const ChipInput: React.FC<ChipInputProps> = ({
       <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
         {label}
       </Typography>
-      <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1 }}>
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1, minWidth: 0 }}>
         {values.map((value) => (
           <Chip
             key={`${label}-${value}`}
             label={value}
             onDelete={() => onChange(values.filter((item) => item !== value))}
-            sx={{ mb: 1 }}
+            sx={chipSx}
           />
         ))}
       </Stack>
-      <Stack direction="row" spacing={1}>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ minWidth: 0 }}>
         <TextField
           size="small"
           fullWidth
