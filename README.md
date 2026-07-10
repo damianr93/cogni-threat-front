@@ -2,17 +2,28 @@
 
 Frontend desarrollado con React, TypeScript y Vite para la visualización y gestión de información relacionada con inteligencia de amenazas.
 
-## Quick Start With Docker
+This is the **frontend** half of CogniThreat. The companion backend repo lives at
+**[damianr93/cogni-threat-back](https://github.com/damianr93/cogni-threat-back)**
+— that's where the full-stack Docker setup and deploy guide live.
 
-For the community setup, run the full stack from the sibling backend repository (`../cogni-threat`). The backend compose file builds this frontend and serves it through Nginx.
+## Quick Start (full stack, Docker)
+
+Clone both repos as sibling directories and run everything from the backend repo,
+which builds this frontend and serves it through Nginx:
 
 ```bash
-cd ../cogni-threat
+git clone https://github.com/damianr93/cogni-threat-back.git
+git clone https://github.com/damianr93/cogni-threat-front.git
+cd cogni-threat-back
 cp .env.template .env
+# edit .env: set DB_PASSWORD, JWT_SECRET, SECRETS_MASTER_KEY, ADMIN_EMAIL, ADMIN_PASSWORD
 docker compose up --build
 ```
 
-The frontend is exposed on `http://localhost:8080` by default. Set `VITE_API_URL` only when you need the built frontend to call an API outside the default `/api` proxy path.
+See **[DEPLOY.md](https://github.com/damianr93/cogni-threat-back/blob/main/DEPLOY.md)**
+in the backend repo for the full guide. The frontend is exposed on
+`http://localhost:8080` by default. Set `VITE_API_URL` only when you need the built
+frontend to call an API outside the default `/api` proxy path.
 
 On first boot, sign in with the backend `ADMIN_EMAIL` / `ADMIN_PASSWORD` values and use **Administración → Fuentes, credenciales e IA** to configure API keys and Ollama/RAG settings.
 
@@ -47,7 +58,7 @@ El proyecto utiliza Corepack para gestionar la versión de pnpm.
 Clonar el repositorio:
 
 ```bash
-git clone <url-del-repositorio>
+git clone https://github.com/damianr93/cogni-threat-front.git
 cd cogni-threat-front
 ```
 
@@ -192,44 +203,6 @@ No versionar:
 
 ---
 
-# Flujo de trabajo Git
+# Contribuir
 
-## Rama principal de desarrollo
-
-Todos los cambios deben realizarse sobre la rama:
-
-```bash
-develop
-```
-
-Flujo habitual:
-
-```bash
-git checkout develop
-
-git pull origin develop
-
-git add .
-
-git commit -m "Descripción del cambio"
-
-git push origin develop
-```
-
-## Despliegue
-
-La rama `develop` es utilizada como rama principal de desarrollo.
-
-Una vez validados los cambios, el despliegue a los entornos correspondientes se realiza mediante los pipelines de CI/CD configurados para el proyecto.
-
-No realizar cambios directamente sobre los servidores de producción.
-
-## Buenas prácticas
-
-* Mantener la rama `develop` actualizada antes de comenzar a trabajar.
-* Realizar commits descriptivos y pequeños cuando sea posible.
-* Verificar que la aplicación compile correctamente antes de realizar un push.
-* Evitar commits con archivos temporales, credenciales o archivos `.env`.
-
-```
-```
+Ver [CONTRIBUTING.md](./CONTRIBUTING.md) para el flujo de fork, branches y pull requests.
