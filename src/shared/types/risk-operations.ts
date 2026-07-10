@@ -18,7 +18,10 @@ export interface InformationAsset {
   integrity: number;
   availability: number;
   ownerName?: string | null;
+  ownerUserId?: string | null;
+  /** @deprecated legacy field, no longer editable via the form; kept for reading historical API responses */
   businessContext?: string | null;
+  description?: string | null;
   tags: string[];
   isActive: boolean;
   createdAt: string;

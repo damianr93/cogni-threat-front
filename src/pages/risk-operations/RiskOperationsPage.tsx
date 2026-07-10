@@ -8,9 +8,12 @@ import {
   CircularProgress,
   Divider,
   Drawer,
+  FormControl,
   IconButton,
+  InputLabel,
   MenuItem,
   Paper,
+  Select,
   Stack,
   Table,
   TableBody,
@@ -25,6 +28,7 @@ import {
 } from "@mui/material";
 import { Add, Assessment, Close, Edit, FactCheck, Inventory, Link as LinkIcon, Security, Speed } from "@mui/icons-material";
 import PageHeader from "../../shared/components/PageHeader";
+import { api } from "../../shared/utils/api";
 import { useAppDispatch } from "../../shared/hooks/useAppDispatch";
 import { useAppSelector } from "../../shared/hooks/useAppSelector";
 import {
@@ -78,6 +82,19 @@ const riskLevels: RiskLevel[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 const riskStatuses: RiskStatus[] = ["IDENTIFIED", "ANALYZED", "TREATMENT_DEFINED", "TREATED", "ACCEPTED", "CLOSED"];
 const treatmentOptions: TreatmentOption[] = ["MITIGATE", "ACCEPT", "TRANSFER", "AVOID"];
 const treatmentStatuses: TreatmentStatus[] = ["PLANNED", "IN_PROGRESS", "IMPLEMENTED", "VERIFIED"];
+const ciaRatings = [1, 2, 3, 4, 5];
+
+interface AdminUserOption {
+  id: string;
+  email: string;
+}
+
+/** Generates a short, readable, client-side-unique asset code, e.g. "AST-l8x3f9a1-k3j2". */
+function generateAssetCode() {
+  const timestampPart = Date.now().toString(36);
+  const randomPart = Math.random().toString(36).slice(2, 6);
+  return `AST-${timestampPart}-${randomPart}`;
+}
 
 const initialForm: Record<string, string> = {
   code: "",
@@ -88,7 +105,7 @@ const initialForm: Record<string, string> = {
   integrity: "3",
   availability: "3",
   ownerName: "",
-  businessContext: "",
+  ownerUserId: "",
   tags: "",
   assetId: "",
   title: "",
@@ -135,10 +152,34 @@ const RiskOperationsPage = ({ kind }: RiskOperationsPageProps) => {
   const [measurementOpen, setMeasurementOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [riskView, setRiskView] = useState<"list" | "matrix">("list");
+  const [adminUsers, setAdminUsers] = useState<AdminUserOption[]>([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [adminUsersError, setAdminUsersError] = useState<string | null>(null);
 
   useEffect(() => {
     dispatch(fetchRiskOperations());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (kind !== "assets") return;
+    let cancelled = false;
+    setAdminUsersLoading(true);
+    setAdminUsersError(null);
+    api
+      .get<AdminUserOption[]>("/admin/users")
+      .then((response) => {
+        if (!cancelled) setAdminUsers(response.data);
+      })
+      .catch(() => {
+        if (!cancelled) setAdminUsersError("No se pudieron cargar los usuarios");
+      })
+      .finally(() => {
+        if (!cancelled) setAdminUsersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [kind]);
 
   const update = (field: string, value: string) => setForm((current) => ({ ...current, [field]: value }));
 
@@ -157,7 +198,7 @@ const RiskOperationsPage = ({ kind }: RiskOperationsPageProps) => {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm(initialForm);
+    setForm(kind === "assets" ? { ...initialForm, code: generateAssetCode() } : initialForm);
     setCreateOpen(true);
   };
 
@@ -250,7 +291,9 @@ const RiskOperationsPage = ({ kind }: RiskOperationsPageProps) => {
       ) : null}
 
       <FormDrawer title={`${editingId ? "Editar" : "Crear"} ${meta.title.toLowerCase()}`} open={createOpen} onClose={() => setCreateOpen(false)} saving={saving} onSave={save}>
-        <Box sx={formGridSx}>{renderForm(kind, form, update, { assets, risks, treatments, controls })}</Box>
+        <Box sx={formGridSx}>
+          {renderForm(kind, form, update, { assets, risks, treatments, controls }, { adminUsers, adminUsersLoading, adminUsersError })}
+        </Box>
       </FormDrawer>
     </Box>
   );
@@ -456,9 +499,28 @@ function getSummaryCards(kind: PageKind, data: RiskOperationsData) {
   ];
 }
 
-function renderForm(kind: PageKind, form: Record<string, string>, update: (field: string, value: string) => void, data: Pick<RiskOperationsData, "assets" | "risks" | "treatments" | "controls">) {
+function renderForm(
+  kind: PageKind,
+  form: Record<string, string>,
+  update: (field: string, value: string) => void,
+  data: Pick<RiskOperationsData, "assets" | "risks" | "treatments" | "controls">,
+  ownerOptions: { adminUsers: AdminUserOption[]; adminUsersLoading: boolean; adminUsersError: string | null },
+) {
   if (kind === "assets") {
-    return <>{field("code", "Código", form, update)}{field("name", "Nombre", form, update)}{field("type", "Tipo", form, update)}{field("criticality", "Criticidad", form, update, riskLevels.map((level) => ({ value: level, label: RISK_LEVEL_LABELS[level] })))}{field("confidentiality", "Confidencialidad", form, update, undefined, "number")}{field("integrity", "Integridad", form, update, undefined, "number")}{field("availability", "Disponibilidad", form, update, undefined, "number")}{field("ownerName", "Responsable", form, update)}{field("businessContext", "Contexto", form, update)}{field("tags", "Tags separados por coma", form, update)}</>;
+    return (
+      <>
+        {field("code", "Código", form, update, undefined, "text", true)}
+        {field("name", "Nombre", form, update)}
+        {field("type", "Tipo", form, update)}
+        {field("criticality", "Criticidad", form, update, riskLevels.map((level) => ({ value: level, label: RISK_LEVEL_LABELS[level] })))}
+        {ciaField("confidentiality", "Confidencialidad", form, update)}
+        {ciaField("integrity", "Integridad", form, update)}
+        {ciaField("availability", "Disponibilidad", form, update)}
+        {ownerField("ownerName", "Responsable", form, update, ownerOptions)}
+        {descriptionField("description", "Descripción", form, update)}
+        {field("tags", "Tags separados por coma", form, update)}
+      </>
+    );
   }
   if (kind === "risks") {
     return <>{field("assetId", "Activo", form, update, data.assets.map((item) => ({ value: item.id, label: `${item.code} · ${item.name}` })))}{field("title", "Título", form, update)}{field("scenario", "Escenario", form, update)}{field("threat", "Amenaza", form, update)}{field("vulnerability", "Vulnerabilidad", form, update)}{field("likelihood", "Probabilidad", form, update, undefined, "number")}{field("impact", "Impacto", form, update, undefined, "number")}{field("status", "Estado", form, update, riskStatuses.map((status) => ({ value: status, label: RISK_STATUS_LABELS[status] })))}{field("ownerName", "Responsable", form, update)}</>;
@@ -472,12 +534,70 @@ function renderForm(kind: PageKind, form: Record<string, string>, update: (field
   return <>{field("name", "Nombre", form, update)}{field("description", "Descripción", form, update)}{field("metricType", "Tipo", form, update, ["NUMBER", "PERCENTAGE", "RATIO", "INDEX"].map((value) => ({ value, label: value })))}{field("unit", "Unidad", form, update)}{field("frequency", "Frecuencia", form, update, ["DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "ANNUAL"].map((value) => ({ value, label: value })))}{field("targetValue", "Meta", form, update, undefined, "number")}{field("warningValue", "Umbral", form, update, undefined, "number")}{field("direction", "Dirección", form, update, [{ value: "HIGHER_IS_BETTER", label: "Mayor es mejor" }, { value: "LOWER_IS_BETTER", label: "Menor es mejor" }])}{field("assetId", "Activo vinculado", form, update, [{ value: "", label: "Sin activo" }, ...data.assets.map((item) => ({ value: item.id, label: item.name }))])}{field("riskId", "Riesgo vinculado", form, update, [{ value: "", label: "Sin riesgo" }, ...data.risks.map((item) => ({ value: item.id, label: item.title }))])}{field("controlId", "Control vinculado", form, update, [{ value: "", label: "Sin control" }, ...data.controls.map((item) => ({ value: item.id, label: item.title }))])}</>;
 }
 
-function field(name: string, label: string, form: Record<string, string>, update: (field: string, value: string) => void, options?: Array<{ value: string; label: string }>, type = "text") {
+function field(name: string, label: string, form: Record<string, string>, update: (field: string, value: string) => void, options?: Array<{ value: string; label: string }>, type = "text", disabled = false) {
   return (
     <Box key={name}>
-      <TextField fullWidth size="small" select={Boolean(options)} type={type} label={label} value={form[name] ?? ""} onChange={(event) => update(name, event.target.value)} InputLabelProps={type === "date" ? { shrink: true } : undefined}>
+      <TextField fullWidth size="small" select={Boolean(options)} type={type} label={label} value={form[name] ?? ""} disabled={disabled} onChange={(event) => update(name, event.target.value)} InputLabelProps={type === "date" ? { shrink: true } : undefined}>
         {options?.map((option) => <MenuItem key={option.value || "empty"} value={option.value}>{option.label}</MenuItem>)}
       </TextField>
+    </Box>
+  );
+}
+
+/** Multiline text field, styled the same way the previous "Contexto" (businessContext) field used to be. */
+function descriptionField(name: string, label: string, form: Record<string, string>, update: (field: string, value: string) => void) {
+  return (
+    <Box key={name} sx={{ gridColumn: { xs: "1", sm: "1 / -1" } }}>
+      <TextField fullWidth multiline rows={3} size="small" label={label} value={form[name] ?? ""} onChange={(event) => update(name, event.target.value)} />
+    </Box>
+  );
+}
+
+/** CIA rating select — 1 to 5, plain MenuItem options (no existing severity-label convention fit this numeric 1-5 case). */
+function ciaField(name: string, label: string, form: Record<string, string>, update: (field: string, value: string) => void) {
+  return (
+    <Box key={name}>
+      <FormControl fullWidth size="small">
+        <InputLabel id={`${name}-label`}>{label}</InputLabel>
+        <Select labelId={`${name}-label`} label={label} value={form[name] ?? "3"} onChange={(event) => update(name, String(event.target.value))}>
+          {ciaRatings.map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
+        </Select>
+      </FormControl>
+    </Box>
+  );
+}
+
+/** Responsable select — populated from GET /admin/users, displayed by email (backend exposes no display-name field). */
+function ownerField(
+  name: string,
+  label: string,
+  form: Record<string, string>,
+  update: (field: string, value: string) => void,
+  { adminUsers, adminUsersLoading, adminUsersError }: { adminUsers: AdminUserOption[]; adminUsersLoading: boolean; adminUsersError: string | null },
+) {
+  const currentValue = form[name] ?? "";
+  const hasCurrentValueInOptions = !currentValue || adminUsers.some((user) => user.email === currentValue);
+
+  return (
+    <Box key={name}>
+      <FormControl fullWidth size="small" disabled={adminUsersLoading}>
+        <InputLabel id={`${name}-label`}>{label}</InputLabel>
+        <Select
+          labelId={`${name}-label`}
+          label={label}
+          value={hasCurrentValueInOptions ? currentValue : ""}
+          onChange={(event) => {
+            const selectedUser = adminUsers.find((user) => user.email === event.target.value);
+            update(name, event.target.value as string);
+            update("ownerUserId", selectedUser?.id ?? "");
+          }}
+        >
+          <MenuItem value="">{adminUsersLoading ? "Cargando..." : "Sin asignar"}</MenuItem>
+          {!hasCurrentValueInOptions ? <MenuItem value={currentValue}>{currentValue}</MenuItem> : null}
+          {adminUsers.map((user) => <MenuItem key={user.id} value={user.email}>{user.email}</MenuItem>)}
+        </Select>
+        {adminUsersError ? <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>{adminUsersError}</Typography> : null}
+      </FormControl>
     </Box>
   );
 }
@@ -507,7 +627,7 @@ function renderTable(kind: PageKind, data: RiskOperationsData, onEdit: (row: Inf
 }
 
 function tableHeaders(kind: PageKind) {
-  if (kind === "assets") return ["Código", "Nombre", "Tipo", "Criticidad", "CIA"];
+  if (kind === "assets") return ["Código", "Nombre", "Tipo", "Criticidad", "CIA", "Descripción"];
   if (kind === "risks") return ["Riesgo", "Activo", "Nivel", "Score", "Estado"];
   if (kind === "treatments") return ["Riesgo", "Opción", "Estado", "Residual", "Acciones"];
   if (kind === "controls") return ["Control", "Categoría", "Frecuencia", "Estado", "Vínculos"];
@@ -517,7 +637,7 @@ function tableHeaders(kind: PageKind) {
 function tableCells(kind: PageKind, row: InformationAsset | Risk | RiskTreatment | OperationalControl | Kpi) {
   if (kind === "assets") {
     const asset = row as InformationAsset;
-    return [asset.code, asset.name, asset.type, <Chip size="small" label={RISK_LEVEL_LABELS[asset.criticality]} />, `${asset.confidentiality}/${asset.integrity}/${asset.availability}`];
+    return [asset.code, asset.name, asset.type, <Chip size="small" label={RISK_LEVEL_LABELS[asset.criticality]} />, `${asset.confidentiality}/${asset.integrity}/${asset.availability}`, truncate(asset.description)];
   }
   if (kind === "risks") {
     const risk = row as Risk;
@@ -537,7 +657,7 @@ function tableCells(kind: PageKind, row: InformationAsset | Risk | RiskTreatment
 }
 
 function buildPayload(kind: PageKind, form: Record<string, string>): Record<string, unknown> {
-  if (kind === "assets") return { code: form.code, name: form.name, type: form.type, criticality: form.criticality, confidentiality: Number(form.confidentiality), integrity: Number(form.integrity), availability: Number(form.availability), ownerName: form.ownerName, businessContext: form.businessContext, tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean) };
+  if (kind === "assets") return { code: form.code, name: form.name, type: form.type, criticality: form.criticality, confidentiality: Number(form.confidentiality), integrity: Number(form.integrity), availability: Number(form.availability), ownerName: form.ownerName, description: form.description || undefined, tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean) };
   if (kind === "risks") return { assetId: form.assetId, title: form.title, scenario: form.scenario, threat: form.threat, vulnerability: form.vulnerability, affectedCia: ["C", "I", "A"], likelihood: Number(form.likelihood), impact: Number(form.impact), status: form.status, ownerName: form.ownerName };
   if (kind === "treatments") return { riskId: form.riskId, strategy: form.strategy, plan: form.plan, responsibleName: form.responsibleName, dueDate: form.dueDate || undefined, residualLikelihood: nullableNumber(form.residualLikelihood), residualImpact: nullableNumber(form.residualImpact), status: form.status };
   if (kind === "controls") return { title: form.title, category: form.category, type: form.type, objective: form.objective, implementation: form.implementation, monitoringFrequency: form.monitoringFrequency, ownerName: form.ownerName };
@@ -547,7 +667,7 @@ function buildPayload(kind: PageKind, form: Record<string, string>): Record<stri
 function formFromRow(kind: PageKind, row: InformationAsset | Risk | RiskTreatment | OperationalControl | Kpi): Record<string, string> {
   if (kind === "assets") {
     const asset = row as InformationAsset;
-    return { code: asset.code, name: asset.name, type: asset.type, criticality: asset.criticality, confidentiality: String(asset.confidentiality), integrity: String(asset.integrity), availability: String(asset.availability), ownerName: asset.ownerName ?? "", businessContext: asset.businessContext ?? "", tags: asset.tags.join(", ") };
+    return { code: asset.code, name: asset.name, type: asset.type, criticality: asset.criticality, confidentiality: String(asset.confidentiality), integrity: String(asset.integrity), availability: String(asset.availability), ownerName: asset.ownerName ?? "", ownerUserId: asset.ownerUserId ?? "", description: asset.description ?? "", tags: asset.tags.join(", ") };
   }
   if (kind === "risks") {
     const risk = row as Risk;
@@ -579,6 +699,11 @@ function buildMeasurementPayload(form: Record<string, string>) {
 
 function nullableNumber(value: string) {
   return value === "" ? undefined : Number(value);
+}
+
+function truncate(value?: string | null, maxLength = 60) {
+  if (!value) return "-";
+  return value.length > maxLength ? `${value.slice(0, maxLength)}…` : value;
 }
 
 export default RiskOperationsPage;
