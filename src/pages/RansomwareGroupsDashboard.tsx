@@ -672,16 +672,37 @@ const RansomwareGroupsDashboard: React.FC = () => {
                 <Groups sx={{ color: "#ef4444" }} />
               </Avatar>
               <Box sx={{ minWidth: 0 }}>
-                <Typography
-                  variant="h4"
-                  sx={{
-                    ...wrapTextSx,
-                    fontWeight: 700,
-                    color: "#ef4444"
-                  }}
-                >
-                  {selectedGroup?.group}
-                </Typography>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+                  <Typography
+                    variant="h4"
+                    sx={{
+                      ...wrapTextSx,
+                      fontWeight: 700,
+                      color: "#ef4444"
+                    }}
+                  >
+                    {selectedGroup?.group}
+                  </Typography>
+                  <Tooltip title={groupRefreshLoading ? "Actualizando desde ransomware.live" : "Actualizar desde API"}>
+                    <span>
+                      <IconButton
+                        onClick={handleRefreshSelectedGroup}
+                        disabled={groupRefreshLoading || !selectedGroup?.group}
+                        size="small"
+                        sx={{
+                          flexShrink: 0,
+                          color: "#ef4444",
+                          bgcolor: "rgba(239, 68, 68, 0.08)",
+                          border: "1px solid rgba(239, 68, 68, 0.28)",
+                          "&:hover": { bgcolor: "rgba(239, 68, 68, 0.16)" },
+                          "&.Mui-disabled": { color: "rgba(239, 68, 68, 0.45)" },
+                        }}
+                      >
+                        {groupRefreshLoading ? <CircularProgress size={18} color="inherit" /> : <Sync fontSize="small" />}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Stack>
                 {selectedGroup?.altname && (
                   <Typography variant="body2" sx={{ ...wrapTextSx, color: "rgba(255, 255, 255, 0.6)" }}>
                     AKA: {selectedGroup.altname}
@@ -932,26 +953,6 @@ const RansomwareGroupsDashboard: React.FC = () => {
                     </Typography>
                   </Stack>
                   <Stack spacing={2}>
-                    <Box sx={{ alignSelf: "flex-start" }}>
-                      <Tooltip title={groupRefreshLoading ? "Actualizando desde ransomware.live" : "Actualizar desde API"}>
-                        <span>
-                          <IconButton
-                            onClick={handleRefreshSelectedGroup}
-                            disabled={groupRefreshLoading || !selectedGroup?.group}
-                            size="small"
-                            sx={{
-                              color: "#ef4444",
-                              bgcolor: "rgba(239, 68, 68, 0.08)",
-                              border: "1px solid rgba(239, 68, 68, 0.28)",
-                              "&:hover": { bgcolor: "rgba(239, 68, 68, 0.16)" },
-                              "&.Mui-disabled": { color: "rgba(239, 68, 68, 0.45)" },
-                            }}
-                          >
-                            {groupRefreshLoading ? <CircularProgress size={18} color="inherit" /> : <Sync fontSize="small" />}
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </Box>
                     {selectedGroup?.url && (
                       <Box>
                         <Typography variant="body2" sx={{ color: "rgba(255, 255, 255, 0.5)", mb: 0.5 }}>
