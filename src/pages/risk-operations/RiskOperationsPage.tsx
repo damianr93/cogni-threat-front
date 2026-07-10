@@ -384,7 +384,18 @@ const SummaryCards = ({ kind, data }: { kind: PageKind; data: RiskOperationsData
   const cards = getSummaryCards(kind, data);
 
   return (
-    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 2, mb: 3 }}>
+    <Box
+      sx={{
+        display: "grid",
+        gridTemplateColumns: {
+          xs: "minmax(0, 1fr)",
+          sm: "repeat(2, minmax(0, 1fr))",
+          lg: `repeat(${Math.min(cards.length, 4)}, minmax(0, 1fr))`,
+        },
+        gap: 2,
+        mb: 3,
+      }}
+    >
       {cards.map((card) => (
         <MetricCard key={card.label} label={card.label} value={card.value} helper={card.helper} accent={card.accent} />
       ))}
