@@ -1,17 +1,17 @@
 {
-  "name": "cogni-threat",
+  "name": "cogni-threat-front",
   "version": "0.0.2",
   "description": "Cogni-Threat Intelligence Platform frontend",
-  "author": "Daniel",
+  "author": "Damian Rodriguez",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/daniel3736/cogni-threat-front.git"
+    "url": "git+https://github.com/damianr93/cogni-threat-front.git"
   },
   "bugs": {
-    "url": "https://github.com/daniel3736/cogni-threat-front/issues"
+    "url": "https://github.com/damianr93/cogni-threat-front/issues"
   },
-  "homepage": "https://github.com/daniel3736/cogni-threat-front#readme",
+  "homepage": "https://github.com/damianr93/cogni-threat-front#readme",
   "type": "module",
   "packageManager": "pnpm@9.15.9",
   "engines": {
