@@ -509,7 +509,6 @@ function renderForm(
   if (kind === "assets") {
     return (
       <>
-        {field("code", "Código", form, update, undefined, "text", true)}
         {field("name", "Nombre", form, update)}
         {field("type", "Tipo", form, update)}
         {field("criticality", "Criticidad", form, update, riskLevels.map((level) => ({ value: level, label: RISK_LEVEL_LABELS[level] })))}
