@@ -47,10 +47,37 @@ export interface Risk {
   residualScore?: number | null;
   residualLevel?: RiskLevel | null;
   status: RiskStatus;
+  ownerUserId?: string | null;
   ownerName?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface RiskAlertMatchedAsset {
+  id: string;
+  code: string;
+  name: string;
+  criticality: RiskLevel;
+  tags: string[];
+  matchedTags: string[];
+}
+
+export interface RiskAlertMatch {
+  id: string;
+  incidentId: string;
+  eventId?: string | null;
+  sourceKey?: string | null;
+  serviceSource: string;
+  country?: string | null;
+  victim?: string | null;
+  group?: string | null;
+  severity?: string | null;
+  sentAt?: string | null;
+  createdAt: string;
+  sourceMessage: string;
+  payload: Record<string, unknown>;
+  matchedAssets: RiskAlertMatchedAsset[];
 }
 
 export interface TreatmentAction {

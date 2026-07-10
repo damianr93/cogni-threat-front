@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { api } from "../../../shared/utils/api";
-import type { InformationAsset, Kpi, KpiMeasurement, OperationalControl, Risk, RiskCriteriaConfig, RiskMatrixData, RiskTreatment, TreatmentAction } from "../../../shared/types/risk-operations";
+import type { InformationAsset, Kpi, KpiMeasurement, OperationalControl, Risk, RiskAlertMatch, RiskCriteriaConfig, RiskMatrixData, RiskTreatment, TreatmentAction } from "../../../shared/types/risk-operations";
 
 type Resource = "assets" | "risks" | "treatments" | "controls" | "kpis";
 
@@ -12,6 +12,7 @@ interface RiskOperationsState {
   kpis: Kpi[];
   criteria: RiskCriteriaConfig | null;
   matrix: RiskMatrixData | null;
+  riskAlerts: RiskAlertMatch[];
   loading: boolean;
   saving: boolean;
   error: string | null;
@@ -25,13 +26,14 @@ const initialState: RiskOperationsState = {
   kpis: [],
   criteria: null,
   matrix: null,
+  riskAlerts: [],
   loading: false,
   saving: false,
   error: null,
 };
 
 export const fetchRiskOperations = createAsyncThunk("riskOperations/fetchAll", async () => {
-  const [assets, risks, treatments, controls, kpis, criteria, matrix] = await Promise.all([
+  const [assets, risks, treatments, controls, kpis, criteria, matrix, riskAlerts] = await Promise.all([
     api.get<InformationAsset[]>("/risk-operations/assets"),
     api.get<Risk[]>("/risk-operations/risks"),
     api.get<RiskTreatment[]>("/risk-operations/treatments"),
@@ -39,6 +41,7 @@ export const fetchRiskOperations = createAsyncThunk("riskOperations/fetchAll", a
     api.get<Kpi[]>("/risk-operations/kpis"),
     api.get<RiskCriteriaConfig>("/risk-operations/criteria"),
     api.get<RiskMatrixData>("/risk-operations/risks/matrix"),
+    api.get<RiskAlertMatch[]>("/risk-operations/risks/alerts"),
   ]);
 
   return {
@@ -49,6 +52,7 @@ export const fetchRiskOperations = createAsyncThunk("riskOperations/fetchAll", a
     kpis: kpis.data,
     criteria: criteria.data,
     matrix: matrix.data,
+    riskAlerts: riskAlerts.data,
   };
 });
 
@@ -115,6 +119,7 @@ const riskOperationsSlice = createSlice({
         state.kpis = action.payload.kpis;
         state.criteria = action.payload.criteria;
         state.matrix = action.payload.matrix;
+        state.riskAlerts = action.payload.riskAlerts;
       })
       .addCase(fetchRiskOperations.rejected, (state, action) => {
         state.loading = false;
