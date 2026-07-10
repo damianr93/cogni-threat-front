@@ -8,11 +8,9 @@ import RansomwareGroupsDashboard from "../../pages/RansomwareGroupsDashboard";
 import AlertsConfig from "../../pages/AlertsConfig";
 import TelegramAlerts from "../../pages/TelegramAlerts";
 import ActorsDashboard from "../../pages/ActorsDashboard";
-import FakeNewsDashboard from "../../pages/FakeNewsDashboard";
 import CustomDashboard from "../../pages/CustomDashboard";
 import VulnMonitorDashboard from "../../pages/VulnMonitorDashboard";
 import ChatAiDashboard from "../../pages/ChatAiDashboard";
-import CountriesDashboard from "../../pages/CountriesDashboard";
 import Login from "../../pages/Login";
 import AdminUsersPanel from "../../pages/AdminUsersPanel";
 import SecretsPanel from "../../pages/SecretsPanel";
@@ -61,8 +59,6 @@ const ProtectedLayout = () => {
         <Route path="/alerts-config" element={<AlertsConfig />} />
         <Route path="/telegram-alerts" element={<TelegramAlerts />} />
         <Route path="/actors" element={<ActorsDashboard />} />
-        <Route path="/fake-news" element={<FakeNewsDashboard />} />
-        <Route path="/countries" element={<CountriesDashboard />} />
         <Route path="/assets" element={<AssetsPage />} />
         <Route path="/risks" element={<RisksPage />} />
         <Route path="/risk-treatment" element={<RiskTreatmentPage />} />

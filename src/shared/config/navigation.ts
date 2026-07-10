@@ -1,7 +1,6 @@
 import type { SvgIconComponent } from "@mui/icons-material";
 import {
   AdminPanelSettings as AdminPanelSettingsIcon,
-  Article as ArticleIcon,
   Assessment as AssessmentIcon,
   Dashboard as DashboardIcon,
   FactCheck as FactCheckIcon,
@@ -9,7 +8,6 @@ import {
   Groups as GroupsIcon,
   Inventory as InventoryIcon,
   Person as PersonIcon,
-  Public as PublicIcon,
   Security as SecurityIcon,
   Settings as SettingsIcon,
   Shield as ShieldIcon,
@@ -49,9 +47,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { path: "/ransomware", label: "Ransomware", icon: SecurityIcon },
       { path: "/ransomware-groups", label: "Grupos de ransomware", icon: GroupsIcon },
       { path: "/actors", label: "Actores", icon: PersonIcon },
-      { path: "/countries", label: "Países", icon: PublicIcon },
       { path: "/vuln-monitor", label: "Vulnerabilidades", icon: GppBadIcon },
-      { path: "/fake-news", label: "Fake News", icon: ArticleIcon },
       { path: "/telegram-alerts", label: "Canales de Telegram", icon: TelegramIcon },
     ],
   },
