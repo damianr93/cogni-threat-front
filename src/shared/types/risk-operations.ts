@@ -101,6 +101,7 @@ export interface RiskTreatment {
   risk?: Risk;
   strategy: TreatmentOption;
   plan: string;
+  responsibleUserId?: string | null;
   responsibleName?: string | null;
   dueDate?: string | null;
   residualLikelihood?: number | null;

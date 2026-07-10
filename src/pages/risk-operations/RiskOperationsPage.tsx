@@ -121,6 +121,7 @@ const initialForm: Record<string, string> = {
   strategy: "MITIGATE",
   plan: "",
   responsibleName: "",
+  responsibleUserId: "",
   dueDate: "",
   residualLikelihood: "",
   residualImpact: "",
@@ -154,6 +155,7 @@ const RiskOperationsPage = ({ kind }: RiskOperationsPageProps) => {
   const [measurementOpen, setMeasurementOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [riskView, setRiskView] = useState<"list" | "matrix" | "alerts">("list");
+  const [treatmentView, setTreatmentView] = useState<"list" | "alerts">("list");
   const [adminUsers, setAdminUsers] = useState<AdminUserOption[]>([]);
   const [adminUsersLoading, setAdminUsersLoading] = useState(false);
   const [adminUsersError, setAdminUsersError] = useState<string | null>(null);
@@ -163,7 +165,7 @@ const RiskOperationsPage = ({ kind }: RiskOperationsPageProps) => {
   }, [dispatch]);
 
   useEffect(() => {
-    if (kind !== "assets" && kind !== "risks") return;
+    if (kind !== "assets" && kind !== "risks" && kind !== "treatments") return;
     let cancelled = false;
     setAdminUsersLoading(true);
     setAdminUsersError(null);
@@ -259,10 +261,15 @@ const RiskOperationsPage = ({ kind }: RiskOperationsPageProps) => {
       {kind === "risks" ? (
         <RiskViewSwitcher value={riskView} onChange={setRiskView} />
       ) : null}
+      {kind === "treatments" ? (
+        <TreatmentViewSwitcher value={treatmentView} onChange={setTreatmentView} />
+      ) : null}
       {kind === "risks" && riskView === "matrix" && matrix ? (
         <RiskMatrixWidget matrix={matrix} threshold={criteria?.acceptanceThreshold ?? matrix.acceptanceThreshold} />
       ) : kind === "risks" && riskView === "alerts" ? (
         <RiskAlertsPanel alerts={riskAlerts} />
+      ) : kind === "treatments" && treatmentView === "alerts" ? (
+        <TreatmentAlertsPanel treatments={treatments} alerts={riskAlerts} />
       ) : (
         renderTable(kind, data, openEdit)
       )}
@@ -387,6 +394,29 @@ const RiskViewSwitcher = ({ value, onChange }: { value: "list" | "matrix" | "ale
   </Stack>
 );
 
+
+const TreatmentViewSwitcher = ({ value, onChange }: { value: "list" | "alerts"; onChange: (value: "list" | "alerts") => void }) => (
+  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+    <Box>
+      <Typography variant="body2" color="text.secondary">
+        Revisá planes y alertas vinculadas al activo del riesgo tratado.
+      </Typography>
+    </Box>
+    <ToggleButtonGroup
+      exclusive
+      size="small"
+      value={value}
+      onChange={(_, next) => next && onChange(next)}
+      sx={{
+        ...surfaceSx,
+      }}
+    >
+      <ToggleButton value="list">Planes</ToggleButton>
+      <ToggleButton value="alerts">Alertas</ToggleButton>
+    </ToggleButtonGroup>
+  </Stack>
+);
+
 const RiskMatrixWidget = ({ matrix, threshold }: { matrix: RiskMatrixData; threshold: number }) => {
   const size = matrix.matrixSize;
   const impacts = Array.from({ length: size }, (_, index) => size - index);
@@ -495,6 +525,56 @@ const RiskAlertsPanel = ({ alerts }: { alerts: RiskAlertMatch[] }) => (
   </Stack>
 );
 
+
+const TreatmentAlertsPanel = ({ treatments, alerts }: { treatments: RiskTreatment[]; alerts: RiskAlertMatch[] }) => {
+  const alertsByTreatment = treatments.map((treatment) => ({
+    treatment,
+    alerts: alerts.filter((alert) =>
+      alert.matchedAssets.some((asset) => asset.id === treatment.risk?.assetId),
+    ),
+  }));
+  const totalAlerts = alertsByTreatment.reduce((total, item) => total + item.alerts.length, 0);
+
+  return (
+    <Stack spacing={2} sx={{ mb: 3 }}>
+      <Alert severity="info">
+        Estas alertas se cruzan contra el activo del riesgo tratado. Si el tag del activo aparece en la fuente, el plan queda con contexto operativo para priorizar.
+      </Alert>
+      {alertsByTreatment.map(({ treatment, alerts: linkedAlerts }) => (
+        <AppCard key={treatment.id}>
+          <CardContent>
+            <Stack spacing={1.5}>
+              <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1}>
+                <Box>
+                  <Typography variant="overline" color="text.secondary">{TREATMENT_OPTION_LABELS[treatment.strategy]}</Typography>
+                  <Typography variant="h6" fontWeight={800}>{treatment.risk?.title ?? treatment.id}</Typography>
+                  <Typography variant="body2" color="text.secondary">{treatment.risk?.asset?.name ?? "Sin activo vinculado"}</Typography>
+                </Box>
+                <Chip size="small" label={`${linkedAlerts.length} alertas`} color={linkedAlerts.length ? "warning" : "default"} />
+              </Stack>
+              <Typography variant="body2">{truncate(treatment.plan, 220)}</Typography>
+              {linkedAlerts.slice(0, 3).map((alert) => (
+                <Box key={`${treatment.id}-${alert.id}`} sx={{ p: 1.5, borderRadius: 2, ...softSurfaceSx }}>
+                  <Typography variant="caption" color="text.secondary">{alert.sourceKey ?? alert.serviceSource}</Typography>
+                  <Typography variant="body2" fontWeight={700}>{alert.victim || alert.incidentId}</Typography>
+                  <Typography variant="caption" color="text.secondary">{truncate(alert.sourceMessage, 220)}</Typography>
+                </Box>
+              ))}
+            </Stack>
+          </CardContent>
+        </AppCard>
+      ))}
+      {!totalAlerts ? (
+        <AppCard>
+          <CardContent>
+            <Typography color="text.secondary">No hay tratamientos con alertas vinculadas por tags todavía.</Typography>
+          </CardContent>
+        </AppCard>
+      ) : null}
+    </Stack>
+  );
+};
+
 const MatrixMetric = ({ label, value }: { label: string; value: number }) => (
   <Box sx={{ p: 1.5, borderRadius: 2, ...softSurfaceSx }}>
     <Typography variant="caption" color="text.secondary">{label}</Typography>
@@ -532,8 +612,14 @@ function getSummaryCards(kind: PageKind, data: RiskOperationsData) {
     ];
   }
   if (kind === "treatments") {
+    const treatmentsWithAlerts = data.treatments.filter((treatment) =>
+      data.riskAlerts.some((alert) =>
+        alert.matchedAssets.some((asset) => asset.id === treatment.risk?.assetId),
+      ),
+    ).length;
     return [
       { label: "Planes", value: data.treatments.length, helper: "Tratamientos definidos", accent: uiTokens.accent },
+      { label: "Con alertas", value: treatmentsWithAlerts, helper: "Contexto fuente por tag", accent: "#f59e0b" },
       { label: "Acciones", value: data.treatments.reduce((total, item) => total + (item.actions?.length ?? 0), 0), helper: "Con responsables/evidencia", accent: "#8b5cf6" },
       { label: "Verificados", value: data.treatments.filter((item) => item.status === "VERIFIED").length, helper: "Cerrados operativamente", accent: "#22c55e" },
     ];
@@ -578,7 +664,7 @@ function renderForm(
     return <>{field("assetId", "Activo", form, update, data.assets.map((item) => ({ value: item.id, label: `${item.code} · ${item.name}` })))}{field("title", "Título", form, update)}{field("scenario", "Escenario", form, update)}{field("threat", "Amenaza", form, update)}{field("vulnerability", "Vulnerabilidad", form, update)}{scoreField("likelihood", "Probabilidad", form, update)}{scoreField("impact", "Impacto", form, update)}{field("status", "Estado", form, update, riskStatuses.map((status) => ({ value: status, label: RISK_STATUS_LABELS[status] })))}{ownerField("ownerName", "Responsable", form, update, ownerOptions)}</>;
   }
   if (kind === "treatments") {
-    return <>{field("riskId", "Riesgo", form, update, data.risks.map((item) => ({ value: item.id, label: item.title })))}{field("strategy", "Opción", form, update, treatmentOptions.map((option) => ({ value: option, label: TREATMENT_OPTION_LABELS[option] })))}{field("plan", "Plan", form, update)}{field("responsibleName", "Responsable", form, update)}{field("dueDate", "Vencimiento", form, update, undefined, "date")}{field("residualLikelihood", "Probabilidad residual", form, update, undefined, "number")}{field("residualImpact", "Impacto residual", form, update, undefined, "number")}{field("status", "Estado", form, update, treatmentStatuses.map((status) => ({ value: status, label: TREATMENT_STATUS_LABELS[status] })))}</>;
+    return <>{field("riskId", "Riesgo", form, update, data.risks.map((item) => ({ value: item.id, label: item.title })))}{field("strategy", "Opción", form, update, treatmentOptions.map((option) => ({ value: option, label: TREATMENT_OPTION_LABELS[option] })))}{descriptionField("plan", "Plan", form, update)}{ownerField("responsibleName", "Responsable", form, update, ownerOptions, "responsibleUserId")}{field("dueDate", "Vencimiento", form, update, undefined, "date")}{optionalScoreField("residualLikelihood", "Probabilidad residual", form, update)}{optionalScoreField("residualImpact", "Impacto residual", form, update)}{field("status", "Estado", form, update, treatmentStatuses.map((status) => ({ value: status, label: TREATMENT_STATUS_LABELS[status] })))}</>;
   }
   if (kind === "controls") {
     return <>{field("title", "Título", form, update)}{field("category", "Categoría", form, update)}{field("type", "Tipo", form, update)}{field("objective", "Objetivo", form, update)}{field("implementation", "Implementación", form, update)}{field("monitoringFrequency", "Frecuencia", form, update)}{field("ownerName", "Responsable", form, update)}</>;
@@ -612,7 +698,7 @@ function ciaField(name: string, label: string, form: Record<string, string>, upd
       <FormControl fullWidth size="small">
         <InputLabel id={`${name}-label`}>{label}</InputLabel>
         <Select labelId={`${name}-label`} label={label} value={form[name] ?? "3"} onChange={(event) => update(name, String(event.target.value))}>
-          {scoreOptions.map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
+          {scoreOptions.map((value) => <MenuItem key={value} value={String(value)}>{value}</MenuItem>)}
         </Select>
       </FormControl>
     </Box>
@@ -626,23 +712,24 @@ function scoreField(name: string, label: string, form: Record<string, string>, u
       <FormControl fullWidth size="small">
         <InputLabel id={`${name}-label`}>{label}</InputLabel>
         <Select labelId={`${name}-label`} label={label} value={form[name] ?? "3"} onChange={(event) => update(name, String(event.target.value))}>
-          {scoreOptions.map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
+          {scoreOptions.map((value) => <MenuItem key={value} value={String(value)}>{value}</MenuItem>)}
         </Select>
       </FormControl>
     </Box>
   );
 }
 
-/** Responsable select — populated from GET /admin/users, displayed by email (backend exposes no display-name field). */
+/** Responsable select — populated from GET /risk-operations/users, displayed by email (backend exposes no display-name field). */
 function ownerField(
   name: string,
   label: string,
   form: Record<string, string>,
   update: (field: string, value: string) => void,
   { adminUsers, adminUsersLoading, adminUsersError }: { adminUsers: AdminUserOption[]; adminUsersLoading: boolean; adminUsersError: string | null },
+  idField = "ownerUserId",
 ) {
   const currentValue = form[name] ?? "";
-  const currentUserId = form.ownerUserId ?? "";
+  const currentUserId = form[idField] ?? "";
   const selectedById = currentUserId ? adminUsers.find((user) => user.id === currentUserId) : undefined;
   const selectValue = selectedById?.email ?? currentValue;
   const hasCurrentValueInOptions = !selectValue || adminUsers.some((user) => user.email === selectValue);
@@ -658,7 +745,7 @@ function ownerField(
           onChange={(event) => {
             const selectedUser = adminUsers.find((user) => user.email === event.target.value);
             update(name, event.target.value as string);
-            update("ownerUserId", selectedUser?.id ?? "");
+            update(idField, selectedUser?.id ?? "");
           }}
         >
           <MenuItem value="">{adminUsersLoading ? "Cargando..." : "Sin asignar"}</MenuItem>
@@ -669,6 +756,14 @@ function ownerField(
       </FormControl>
     </Box>
   );
+}
+
+
+function optionalScoreField(name: string, label: string, form: Record<string, string>, update: (field: string, value: string) => void) {
+  return field(name, label, form, update, [
+    { value: "", label: "Sin calcular" },
+    ...scoreOptions.map((value) => ({ value: String(value), label: String(value) })),
+  ]);
 }
 
 function renderTable(kind: PageKind, data: RiskOperationsData, onEdit: (row: InformationAsset | Risk | RiskTreatment | OperationalControl | Kpi) => void) {
@@ -728,7 +823,7 @@ function tableCells(kind: PageKind, row: InformationAsset | Risk | RiskTreatment
 function buildPayload(kind: PageKind, form: Record<string, string>): Record<string, unknown> {
   if (kind === "assets") return { code: form.code, name: form.name, type: form.type, criticality: form.criticality, confidentiality: Number(form.confidentiality), integrity: Number(form.integrity), availability: Number(form.availability), ownerName: form.ownerName, description: form.description || undefined, tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean) };
   if (kind === "risks") return { assetId: form.assetId, title: form.title, scenario: form.scenario, threat: form.threat, vulnerability: form.vulnerability, affectedCia: ["C", "I", "A"], likelihood: Number(form.likelihood), impact: Number(form.impact), status: form.status, ownerName: form.ownerName, ownerUserId: form.ownerUserId || undefined };
-  if (kind === "treatments") return { riskId: form.riskId, strategy: form.strategy, plan: form.plan, responsibleName: form.responsibleName, dueDate: form.dueDate || undefined, residualLikelihood: nullableNumber(form.residualLikelihood), residualImpact: nullableNumber(form.residualImpact), status: form.status };
+  if (kind === "treatments") return { riskId: form.riskId, strategy: form.strategy, plan: form.plan, responsibleName: form.responsibleName, responsibleUserId: form.responsibleUserId || undefined, dueDate: form.dueDate || undefined, residualLikelihood: nullableNumber(form.residualLikelihood), residualImpact: nullableNumber(form.residualImpact), status: form.status };
   if (kind === "controls") return { title: form.title, category: form.category, type: form.type, objective: form.objective, implementation: form.implementation, monitoringFrequency: form.monitoringFrequency, ownerName: form.ownerName };
   return { name: form.name, description: form.description, metricType: form.metricType, unit: form.unit, frequency: form.frequency, targetValue: Number(form.targetValue), warningValue: nullableNumber(form.warningValue), direction: form.direction, assetId: form.assetId || undefined, riskId: form.riskId || undefined, controlId: form.controlId || undefined };
 }
@@ -744,7 +839,7 @@ function formFromRow(kind: PageKind, row: InformationAsset | Risk | RiskTreatmen
   }
   if (kind === "treatments") {
     const treatment = row as RiskTreatment;
-    return { riskId: treatment.riskId, strategy: treatment.strategy, plan: treatment.plan, responsibleName: treatment.responsibleName ?? "", dueDate: toDateInput(treatment.dueDate), residualLikelihood: treatment.residualLikelihood ? String(treatment.residualLikelihood) : "", residualImpact: treatment.residualImpact ? String(treatment.residualImpact) : "", status: treatment.status };
+    return { riskId: treatment.riskId, strategy: treatment.strategy, plan: treatment.plan, responsibleName: treatment.responsibleName ?? "", responsibleUserId: treatment.responsibleUserId ?? "", dueDate: toDateInput(treatment.dueDate), residualLikelihood: treatment.residualLikelihood ? String(treatment.residualLikelihood) : "", residualImpact: treatment.residualImpact ? String(treatment.residualImpact) : "", status: treatment.status };
   }
   if (kind === "controls") {
     const control = row as OperationalControl;
