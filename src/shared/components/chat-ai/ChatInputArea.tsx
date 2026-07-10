@@ -1,10 +1,9 @@
 import React from "react";
 import {
-  Box, TextField, IconButton, Stack, Chip, Typography, Tooltip,
+  Box, TextField, IconButton, Stack, Chip, Typography, Tooltip, Autocomplete,
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
-import CloseIcon from "@mui/icons-material/Close";
-import type { ContextCategory } from "../../../store/slices/chatAi/chatAiSlice";
+import type { ContextCategory, ContextSourceItem } from "../../../store/slices/chatAi/chatAiSlice";
 
 interface Props {
   value: string;
@@ -15,8 +14,9 @@ interface Props {
   selectedSources: string[];
   selectedCategories: string[];
   contextCategories: ContextCategory[];
+  contextSources: ContextSourceItem[];
   sourceLabels: Record<string, string>;
-  onRemoveSource: (id: string) => void;
+  onToggleSource: (id: string) => void;
   onToggleCategory: (id: string) => void;
   onClearCategories: () => void;
 }
@@ -30,8 +30,9 @@ const ChatInputArea: React.FC<Props> = ({
   selectedSources,
   selectedCategories,
   contextCategories,
+  contextSources,
   sourceLabels,
-  onRemoveSource,
+  onToggleSource,
   onToggleCategory,
   onClearCategories,
 }) => {
@@ -54,21 +55,43 @@ const ChatInputArea: React.FC<Props> = ({
     >
       <Box sx={{ maxWidth: 820, mx: "auto", px: { xs: 2, sm: 3 } }}>
         {selectedSources.length > 0 ? (
-          <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 1.25 }}>
-            <Typography variant="caption" color="text.disabled" sx={{ alignSelf: "center", mr: 0.5 }}>
-              Contexto:
-            </Typography>
-            {selectedSources.map((id) => (
-              <Chip
-                key={id}
-                label={sourceLabels[id] ?? id}
-                size="small"
-                onDelete={() => onRemoveSource(id)}
-                deleteIcon={<CloseIcon sx={{ fontSize: 14 }} />}
-                sx={{ fontSize: "0.72rem", maxWidth: 220 }}
-              />
-            ))}
-          </Stack>
+          <Box sx={{ mb: 1.25 }}>
+            <Autocomplete
+              multiple
+              size="small"
+              options={contextSources}
+              getOptionLabel={(option) => option.label}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              value={contextSources.filter((s) => selectedSources.includes(s.id))}
+              onChange={(_, __, reason, details) => {
+                if (reason === "removeOption" && details?.option) {
+                  onToggleSource(details.option.id);
+                } else if (reason === "clear") {
+                  selectedSources.forEach((id) => onToggleSource(id));
+                }
+              }}
+              renderTags={(tagValue, getTagProps) =>
+                tagValue.map((option, index) => (
+                  <Chip
+                    {...getTagProps({ index })}
+                    key={option.id}
+                    label={sourceLabels[option.id] ?? option.label}
+                    size="small"
+                    sx={{ fontSize: "0.72rem", maxWidth: 220 }}
+                  />
+                ))
+              }
+              renderInput={(params) => (
+                <TextField {...params} label="Contexto" placeholder="Fuentes seleccionadas" />
+              )}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  bgcolor: "rgba(255,255,255,0.02)",
+                  fontSize: "0.82rem",
+                },
+              }}
+            />
+          </Box>
         ) : (
           <Stack direction="row" flexWrap="wrap" gap={0.75} alignItems="center" sx={{ mb: 1.25 }}>
             <Typography variant="caption" color="text.disabled">

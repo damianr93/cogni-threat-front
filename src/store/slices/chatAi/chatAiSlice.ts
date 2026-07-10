@@ -7,6 +7,8 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
+  pending?: boolean;
+  failed?: boolean;
 }
 
 export interface ConversationSummary {
@@ -103,6 +105,19 @@ export const updateConversationTitle = createAsyncThunk(
   }
 );
 
+export const deleteConversation = createAsyncThunk(
+  "chatAi/deleteConversation",
+  async (conversationId: number, { rejectWithValue }) => {
+    try {
+      await api.post(AI_ENDPOINTS.CONVERSATION_DELETE, { conversationId });
+      return { conversationId };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Error al eliminar conversación";
+      return rejectWithValue(message);
+    }
+  }
+);
+
 export const sendMessage = createAsyncThunk(
   "chatAi/sendMessage",
   async (
@@ -111,11 +126,13 @@ export const sendMessage = createAsyncThunk(
       question,
       categories,
       sources,
+      tempId,
     }: {
       conversationId: number;
       question: string;
       categories?: string[];
       sources?: string[];
+      tempId: string;
     },
     { rejectWithValue }
   ) => {
@@ -128,10 +145,10 @@ export const sendMessage = createAsyncThunk(
       const data = unwrapData<{ response: string; conversationId: number; timestamp: string }>(
         response.data
       );
-      return { question, ...data };
+      return { question, tempId, ...data };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Error al enviar mensaje";
-      return rejectWithValue(message);
+      return rejectWithValue({ message, tempId, conversationId });
     }
   }
 );
@@ -227,13 +244,35 @@ const chatAiSlice = createSlice({
         if (conv) conv.title = action.payload.title;
       })
 
-      .addCase(sendMessage.pending, (state) => {
+      .addCase(deleteConversation.fulfilled, (state, action) => {
+        const { conversationId } = action.payload;
+        state.conversations = state.conversations.filter((c) => c.id !== conversationId);
+        delete state.messagesByConv[conversationId];
+        if (state.selectedId === conversationId) {
+          state.selectedId = null;
+        }
+      })
+      .addCase(deleteConversation.rejected, (state, action) => {
+        state.error = (action.payload as string) ?? "Error al eliminar conversación";
+      })
+
+      .addCase(sendMessage.pending, (state, action) => {
         state.sending = true;
         state.error = null;
+        const { conversationId, question, tempId } = action.meta.arg;
+        const messages = state.messagesByConv[conversationId] ?? [];
+        const optimisticMsg: ChatMessage = {
+          id: tempId,
+          role: "user",
+          content: question,
+          timestamp: new Date().toISOString(),
+          pending: true,
+        };
+        state.messagesByConv[conversationId] = [...messages, optimisticMsg];
       })
       .addCase(sendMessage.fulfilled, (state, action) => {
         state.sending = false;
-        const { conversationId, question, response, timestamp } = action.payload;
+        const { conversationId, question, response, timestamp, tempId } = action.payload;
         const messages = state.messagesByConv[conversationId] ?? [];
         const userMsg: ChatMessage = {
           id: `local-u-${Date.now()}`,
@@ -247,11 +286,23 @@ const chatAiSlice = createSlice({
           content: response,
           timestamp,
         };
-        state.messagesByConv[conversationId] = [...messages, userMsg, assistantMsg];
+        const withoutTemp = messages.filter((m) => m.id !== tempId);
+        state.messagesByConv[conversationId] = [...withoutTemp, userMsg, assistantMsg];
       })
       .addCase(sendMessage.rejected, (state, action) => {
         state.sending = false;
-        state.error = (action.payload as string) ?? "Error al enviar";
+        const payload = action.payload as { message?: string; tempId?: string; conversationId?: number } | undefined;
+        state.error = payload?.message ?? "Error al enviar";
+        if (payload?.conversationId != null && payload.tempId) {
+          const messages = state.messagesByConv[payload.conversationId];
+          if (messages) {
+            const msg = messages.find((m) => m.id === payload.tempId);
+            if (msg) {
+              msg.pending = false;
+              msg.failed = true;
+            }
+          }
+        }
       })
 
       .addCase(fetchContextCategories.fulfilled, (state, action) => {

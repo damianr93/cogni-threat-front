@@ -5,6 +5,7 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 import type { ConversationSummary } from "../../../store/slices/chatAi/chatAiSlice";
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
   onSelect: (id: number) => void;
   onNew: () => void;
   onUpdateTitle: (id: number, title: string) => void;
+  onDelete: (id: number) => void;
 }
 
 const ConversationsSidebar: React.FC<Props> = ({
@@ -27,6 +29,7 @@ const ConversationsSidebar: React.FC<Props> = ({
   onSelect,
   onNew,
   onUpdateTitle,
+  onDelete,
 }) => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -131,16 +134,30 @@ const ConversationsSidebar: React.FC<Props> = ({
                       secondaryTypographyProps={{ fontSize: "0.68rem" }}
                     />
                     {canWrite && (
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startEdit(conv.id, conv.title);
-                        }}
-                        sx={{ opacity: 0.5, "&:hover": { opacity: 1 } }}
-                      >
-                        <EditIcon sx={{ fontSize: 14 }} />
-                      </IconButton>
+                      <Stack direction="row" spacing={0.25}>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEdit(conv.id, conv.title);
+                          }}
+                          sx={{ opacity: 0.5, "&:hover": { opacity: 1 } }}
+                        >
+                          <EditIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm("¿Eliminar esta conversación?")) {
+                              onDelete(conv.id);
+                            }
+                          }}
+                          sx={{ opacity: 0.5, "&:hover": { opacity: 1, color: "error.main" } }}
+                        >
+                          <DeleteIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Stack>
                     )}
                   </>
                 )}

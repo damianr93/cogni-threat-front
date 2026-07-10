@@ -18,6 +18,7 @@ import {
   fetchHistory,
   createConversation,
   updateConversationTitle,
+  deleteConversation,
   sendMessage,
   fetchContextCategories,
   selectConversation,
@@ -86,6 +87,14 @@ const ChatAiDashboard: React.FC = () => {
     }
   }, [dispatch, canWrite]);
 
+  const handleDelete = useCallback(
+    async (id: number) => {
+      if (!canWrite) return;
+      await dispatch(deleteConversation(id));
+    },
+    [dispatch, canWrite]
+  );
+
   const handleSend = useCallback(async () => {
     if (!canWrite || !selectedId || !input.trim() || sending) return;
     const question = input.trim();
@@ -96,6 +105,7 @@ const ChatAiDashboard: React.FC = () => {
         question,
         sources: selectedSources.length ? selectedSources : undefined,
         categories: !selectedSources.length && selectedCategories.length ? selectedCategories : undefined,
+        tempId: `temp-${Date.now()}`,
       })
     );
   }, [dispatch, canWrite, selectedId, input, sending, selectedSources, selectedCategories]);
@@ -114,6 +124,7 @@ const ChatAiDashboard: React.FC = () => {
           onUpdateTitle={(id, title) => {
             if (canWrite) dispatch(updateConversationTitle({ id, title }));
           }}
+          onDelete={handleDelete}
         />
       )}
 
@@ -220,8 +231,9 @@ const ChatAiDashboard: React.FC = () => {
           selectedSources={selectedSources}
           selectedCategories={selectedCategories}
           contextCategories={contextCategories}
+          contextSources={contextSources}
           sourceLabels={sourceLabels}
-          onRemoveSource={(id) => dispatch(toggleSelectedSource(id))}
+          onToggleSource={(id) => dispatch(toggleSelectedSource(id))}
           onToggleCategory={(id) => dispatch(toggleSelectedCategory(id))}
           onClearCategories={() => dispatch(clearSelectedCategories())}
         />

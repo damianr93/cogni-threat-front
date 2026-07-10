@@ -135,9 +135,14 @@ const ChatMessageList: React.FC<Props> = ({ messages, loading, sending }) => {
                   px: 1.75,
                   py: 1.25,
                   borderRadius: 2,
-                  bgcolor: msg.role === "user" ? "rgba(74,144,217,0.12)" : "transparent",
-                  border: msg.role === "assistant" ? "1px solid" : "none",
-                  borderColor: "divider",
+                  bgcolor: msg.failed
+                    ? "rgba(211,47,47,0.12)"
+                    : msg.role === "user"
+                    ? "rgba(74,144,217,0.12)"
+                    : "transparent",
+                  border: msg.role === "assistant" || msg.failed ? "1px solid" : "none",
+                  borderColor: msg.failed ? "error.main" : "divider",
+                  opacity: msg.pending ? 0.7 : 1,
                   minWidth: 0,
                   overflow: "hidden",
                 }}
@@ -163,6 +168,7 @@ const ChatMessageList: React.FC<Props> = ({ messages, loading, sending }) => {
                 >
                   {msg.role === "user" ? "Vos" : "Asistente"} ·{" "}
                   {new Date(msg.timestamp).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+                  {msg.failed && " · Error al enviar"}
                 </Typography>
               </Box>
             </Box>
