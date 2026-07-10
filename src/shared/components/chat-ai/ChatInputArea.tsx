@@ -1,9 +1,13 @@
 import React from "react";
 import {
-  Box, TextField, IconButton, Stack, Chip, Typography, Tooltip, Autocomplete,
+  Box, TextField, IconButton, Stack, Chip, Tooltip, Autocomplete,
+  FormControl, InputLabel, Select, OutlinedInput, MenuItem, Checkbox, ListItemText,
+  type SelectChangeEvent,
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 import type { ContextCategory, ContextSourceItem } from "../../../store/slices/chatAi/chatAiSlice";
+
+const ALL_CATEGORIES = "__ALL__";
 
 interface Props {
   value: string;
@@ -41,6 +45,20 @@ const ChatInputArea: React.FC<Props> = ({
       e.preventDefault();
       if (!disabled && !sending && value.trim()) onSend();
     }
+  };
+
+  const handleCategoryChange = (event: SelectChangeEvent<string[]>) => {
+    const raw = event.target.value;
+    const newValue = typeof raw === "string" ? raw.split(",") : raw;
+
+    if (newValue.includes(ALL_CATEGORIES)) {
+      onClearCategories();
+      return;
+    }
+
+    const added = newValue.filter((v) => !selectedCategories.includes(v));
+    const removed = selectedCategories.filter((v) => !newValue.includes(v));
+    [...added, ...removed].forEach(onToggleCategory);
   };
 
   return (
@@ -93,42 +111,38 @@ const ChatInputArea: React.FC<Props> = ({
             />
           </Box>
         ) : (
-          <Stack direction="row" flexWrap="wrap" gap={0.75} alignItems="center" sx={{ mb: 1.25 }}>
-            <Typography variant="caption" color="text.disabled">
-              Base:
-            </Typography>
-            <Chip
-              label="Todas"
-              size="small"
-              variant={selectedCategories.length === 0 ? "filled" : "outlined"}
-              onClick={onClearCategories}
+          <FormControl size="small" sx={{ minWidth: 220, mb: 1.25 }}>
+            <InputLabel id="chat-base-category-label">Base</InputLabel>
+            <Select
+              labelId="chat-base-category-label"
+              multiple
+              value={selectedCategories}
+              onChange={handleCategoryChange}
+              input={<OutlinedInput label="Base" />}
+              renderValue={(selected) =>
+                selected.length === 0
+                  ? "Todas"
+                  : selected
+                      .map((name) => contextCategories.find((c) => c.name === name)?.label ?? name)
+                      .join(", ")
+              }
               sx={{
-                fontSize: "0.72rem",
-                height: 26,
-                ...(selectedCategories.length === 0 && {
-                  bgcolor: "rgba(74,144,217,0.15)",
-                  color: "primary.main",
-                }),
+                fontSize: "0.82rem",
+                bgcolor: "rgba(255,255,255,0.02)",
               }}
-            />
-            {contextCategories.map((cat) => {
-              const active = selectedCategories.includes(cat.name);
-              return (
-                <Chip
-                  key={cat.id}
-                  label={cat.label}
-                  size="small"
-                  variant={active ? "filled" : "outlined"}
-                  onClick={() => onToggleCategory(cat.name)}
-                  sx={{
-                    fontSize: "0.72rem",
-                    height: 26,
-                    ...(active && { bgcolor: `${cat.color}33`, color: cat.color, borderColor: cat.color }),
-                  }}
-                />
-              );
-            })}
-          </Stack>
+            >
+              <MenuItem value={ALL_CATEGORIES}>
+                <Checkbox checked={selectedCategories.length === 0} size="small" />
+                <ListItemText primary="Todas" />
+              </MenuItem>
+              {contextCategories.map((cat) => (
+                <MenuItem key={cat.id} value={cat.name}>
+                  <Checkbox checked={selectedCategories.includes(cat.name)} size="small" />
+                  <ListItemText primary={cat.label} />
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         )}
 
         <Stack direction="row" spacing={1} alignItems="flex-end">

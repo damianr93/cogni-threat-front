@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   Box, Typography, TextField, Stack, Chip, CircularProgress,
   List, ListItemButton, ListItemText, Pagination, InputAdornment,
+  FormControl, InputLabel, Select, OutlinedInput, MenuItem,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -126,37 +127,28 @@ const ContextSidebar: React.FC<Props> = ({
         />
       </Box>
 
-      <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ px: 1.5, pb: 1 }}>
-        <Chip
-          label="Todas"
-          size="small"
-          variant={!browseCategory ? "filled" : "outlined"}
-          onClick={() => setBrowseCategory("")}
-          sx={{
-            fontSize: "0.68rem",
-            height: 24,
-            ...(!browseCategory && { bgcolor: "rgba(74,144,217,0.15)", color: "primary.main" }),
-          }}
-        />
-        {categories.map((cat) => (
-          <Chip
-            key={cat.id}
-            label={cat.label}
-            size="small"
-            variant={browseCategory === cat.name ? "filled" : "outlined"}
-            onClick={() => setBrowseCategory(browseCategory === cat.name ? "" : cat.name)}
-            sx={{
-              fontSize: "0.68rem",
-              height: 24,
-              ...(browseCategory === cat.name && {
-                bgcolor: `${cat.color}33`,
-                color: cat.color,
-                borderColor: cat.color,
-              }),
-            }}
-          />
-        ))}
-      </Stack>
+      <Box sx={{ px: 1.5, pb: 1 }}>
+        <FormControl size="small" fullWidth>
+          <InputLabel id="context-browse-category-label">Categoría</InputLabel>
+          <Select
+            labelId="context-browse-category-label"
+            value={browseCategory}
+            onChange={(e) => setBrowseCategory(e.target.value)}
+            input={<OutlinedInput label="Categoría" />}
+            renderValue={(selected) =>
+              !selected ? "Todas" : categories.find((c) => c.name === selected)?.label ?? selected
+            }
+            sx={{ fontSize: "0.8rem" }}
+          >
+            <MenuItem value="">Todas</MenuItem>
+            {categories.map((cat) => (
+              <MenuItem key={cat.id} value={cat.name}>
+                {cat.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
 
       <Typography variant="caption" color="text.disabled" sx={{ px: 1.5, pb: 0.5 }}>
         {total.toLocaleString()} fuentes
