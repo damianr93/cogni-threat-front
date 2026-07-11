@@ -90,6 +90,10 @@ export interface TreatmentAction {
   status: TreatmentActionStatus;
   evidenceUrl?: string | null;
   evidenceNotes?: string | null;
+  controlId?: string | null;
+  kpiId?: string | null;
+  control?: OperationalControl | null;
+  kpi?: Kpi | null;
   completedAt?: string | null;
   createdAt: string;
   updatedAt: string;

@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -26,18 +27,18 @@ import {
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
-import { Add, Assessment, Close, Edit, FactCheck, Inventory, Link as LinkIcon, Security, Speed } from "@mui/icons-material";
+import { Add, Assessment, Close, Edit, FactCheck, Inventory, Security, Speed, Timeline } from "@mui/icons-material";
 import PageHeader from "../../shared/components/PageHeader";
 import { api } from "../../shared/utils/api";
 import { useAppDispatch } from "../../shared/hooks/useAppDispatch";
 import { useAppSelector } from "../../shared/hooks/useAppSelector";
 import {
-  createKpiMeasurement,
   createRiskOperation,
   createTreatmentAction,
   fetchRiskOperations,
   updateRiskOperation,
 } from "../../store/slices/riskOperations/riskOperationsSlice";
+import type { AppDispatch } from "../../store/store";
 import {
   RISK_LEVEL_LABELS,
   RISK_STATUS_LABELS,
@@ -45,6 +46,8 @@ import {
   TREATMENT_STATUS_LABELS,
   type InformationAsset,
   type Kpi,
+  type KpiDirection,
+  type KpiFrequency,
   type OperationalControl,
   type Risk,
   type RiskAlertMatch,
@@ -163,11 +166,10 @@ const initialForm: Record<string, string> = {
 
 const RiskOperationsPage = ({ kind }: RiskOperationsPageProps) => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { assets, risks, riskAlerts, treatments, controls, kpis, criteria, matrix, loading, saving, error } = useAppSelector((state) => state.riskOperations);
   const [form, setForm] = useState(initialForm);
   const [createOpen, setCreateOpen] = useState(false);
-  const [actionOpen, setActionOpen] = useState(false);
-  const [measurementOpen, setMeasurementOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [riskView, setRiskView] = useState<"list" | "matrix" | "alerts">("list");
   const [treatmentView, setTreatmentView] = useState<"list" | "alerts">("list");
@@ -227,20 +229,6 @@ const RiskOperationsPage = ({ kind }: RiskOperationsPageProps) => {
     setCreateOpen(true);
   };
 
-  const saveAction = async () => {
-    if (!form.treatmentId) return;
-    await dispatch(createTreatmentAction({ treatmentId: form.treatmentId, payload: buildActionPayload(form) })).unwrap();
-    setActionOpen(false);
-    await dispatch(fetchRiskOperations());
-  };
-
-  const saveMeasurement = async () => {
-    if (!form.kpiId) return;
-    await dispatch(createKpiMeasurement({ kpiId: form.kpiId, payload: buildMeasurementPayload(form) })).unwrap();
-    setMeasurementOpen(false);
-    await dispatch(fetchRiskOperations());
-  };
-
   const meta = pageMeta[kind];
   const data = { assets, risks, riskAlerts, treatments, controls, kpis };
 
@@ -252,16 +240,6 @@ const RiskOperationsPage = ({ kind }: RiskOperationsPageProps) => {
         subtitle={meta.subtitle}
         actions={
           <Stack direction="row" spacing={1}>
-            {kind === "treatments" ? (
-              <Button variant="outlined" startIcon={<LinkIcon />} onClick={() => setActionOpen(true)}>
-                Acción
-              </Button>
-            ) : null}
-            {kind === "kpis" ? (
-              <Button variant="outlined" startIcon={<Assessment />} onClick={() => setMeasurementOpen(true)}>
-                Medición
-              </Button>
-            ) : null}
             <Button variant="contained" startIcon={<Add />} onClick={openCreate}>
               Crear
             </Button>
@@ -286,40 +264,32 @@ const RiskOperationsPage = ({ kind }: RiskOperationsPageProps) => {
       ) : kind === "treatments" && treatmentView === "alerts" ? (
         <TreatmentAlertsPanel treatments={treatments} alerts={riskAlerts} />
       ) : (
-        renderTable(kind, data, openEdit)
+        renderTable(kind, data, openEdit, kind === "kpis" ? (kpiId: string) => navigate(`/kpis/${kpiId}`) : undefined)
       )}
-
-      {kind === "treatments" ? (
-        <FormDrawer title="Agregar acción" open={actionOpen} onClose={() => setActionOpen(false)} saving={saving} onSave={saveAction} saveLabel="Agregar acción">
-          <EvidenceHint />
-          <Box sx={formGridSx}>
-            {field("treatmentId", "Tratamiento", form, update, treatments.map((item) => ({ value: item.id, label: item.risk?.title ?? item.id })))}
-            {field("title", "Acción", form, update)}
-            {field("ownerName", "Responsable", form, update)}
-            {field("dueDate", "Vencimiento", form, update, undefined, "date")}
-            {field("evidenceUrl", "URL de evidencia", form, update)}
-            {field("evidenceNotes", "Notas de evidencia", form, update)}
-          </Box>
-        </FormDrawer>
-      ) : null}
-
-      {kind === "kpis" ? (
-        <FormDrawer title="Registrar medición" open={measurementOpen} onClose={() => setMeasurementOpen(false)} saving={saving} onSave={saveMeasurement} saveLabel="Registrar medición">
-          <EvidenceHint />
-          <Box sx={formGridSx}>
-            {field("kpiId", "KPI", form, update, kpis.map((item) => ({ value: item.id, label: item.name })))}
-            {field("measuredAt", "Fecha", form, update, undefined, "date")}
-            {field("value", "Valor", form, update, undefined, "number")}
-            {field("evidenceUrl", "URL de evidencia", form, update)}
-            {field("notes", "Notas", form, update)}
-          </Box>
-        </FormDrawer>
-      ) : null}
 
       <FormDrawer title={`${editingId ? "Editar" : "Crear"} ${meta.title.toLowerCase()}`} open={createOpen} onClose={() => setCreateOpen(false)} saving={saving} onSave={save}>
         <Box sx={formGridSx}>
           {renderForm(kind, form, update, { assets, risks, treatments, controls }, { adminUsers, adminUsersLoading, adminUsersError })}
         </Box>
+        {kind === "controls" && editingId ? (
+          <ControlKpiPanel kpis={kpis} controlId={editingId} dispatch={dispatch} onViewMeasurements={(kpiId: string) => navigate(`/kpis/${kpiId}`)} />
+        ) : null}
+        {kind === "treatments" && editingId ? (() => {
+          const treatment = treatments.find((item) => item.id === editingId);
+          return treatment ? <TreatmentActionsPanel treatment={treatment} controls={controls} kpis={kpis} dispatch={dispatch} /> : null;
+        })() : null}
+        {kind === "risks" && editingId ? (() => {
+          const treatment = treatments.find((item) => item.riskId === editingId);
+          if (!treatment) {
+            return (
+              <Box sx={{ mt: 3 }}>
+                <Divider sx={{ mb: 2 }} />
+                <Typography variant="body2" color="text.secondary">Este riesgo todavía no tiene un tratamiento definido — las acciones se habilitan una vez creado.</Typography>
+              </Box>
+            );
+          }
+          return <TreatmentActionsPanel treatment={treatment} controls={controls} kpis={kpis} dispatch={dispatch} />;
+        })() : null}
       </FormDrawer>
     </Box>
   );
@@ -372,12 +342,6 @@ const FormDrawer = ({
       </Stack>
     </Box>
   </Drawer>
-);
-
-const EvidenceHint = () => (
-  <Alert severity="info" sx={{ mb: 2 }}>
-    La evidencia se registra por URL. No hay carga de archivos porque esta app no tiene storage/S3 configurado.
-  </Alert>
 );
 
 const SummaryCards = ({ kind, data }: { kind: PageKind; data: RiskOperationsData }) => {
@@ -799,7 +763,12 @@ function optionalScoreField(name: string, label: string, form: Record<string, st
   ]);
 }
 
-function renderTable(kind: PageKind, data: RiskOperationsData, onEdit: (row: InformationAsset | Risk | RiskTreatment | OperationalControl | Kpi) => void) {
+function renderTable(
+  kind: PageKind,
+  data: RiskOperationsData,
+  onEdit: (row: InformationAsset | Risk | RiskTreatment | OperationalControl | Kpi) => void,
+  onViewMeasurements?: (kpiId: string) => void,
+) {
   const rows = data[kind];
   return (
     <TableContainer component={Paper} sx={{ ...surfaceSx, maxWidth: "100%", overflowX: "auto" }}>
@@ -808,11 +777,18 @@ function renderTable(kind: PageKind, data: RiskOperationsData, onEdit: (row: Inf
         <TableBody>
           {rows.map((row) => (
             <TableRow key={row.id} hover>
-              {tableCells(kind, row).map((cell, index) => <TableCell key={`${row.id}-${index}`} sx={{ maxWidth: { xs: 220, md: 320 }, verticalAlign: "top", ...wrapTextSx }}>{cell}</TableCell>)}
+              {tableCells(kind, row, data.kpis).map((cell, index) => <TableCell key={`${row.id}-${index}`} sx={{ maxWidth: { xs: 220, md: 320 }, verticalAlign: "top", ...wrapTextSx }}>{cell}</TableCell>)}
               <TableCell align="right">
-                <Button size="small" startIcon={<Edit />} onClick={() => onEdit(row)}>
-                  Editar
-                </Button>
+                <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                  <Button size="small" startIcon={<Edit />} onClick={() => onEdit(row)}>
+                    Editar
+                  </Button>
+                  {kind === "kpis" && onViewMeasurements ? (
+                    <Button size="small" startIcon={<Timeline />} onClick={() => onViewMeasurements(row.id)}>
+                      Mediciones
+                    </Button>
+                  ) : null}
+                </Stack>
               </TableCell>
             </TableRow>
           ))}
@@ -831,7 +807,7 @@ function tableHeaders(kind: PageKind) {
   return ["KPI", "Meta", "Última medición", "Frecuencia", "Evidencia"];
 }
 
-function tableCells(kind: PageKind, row: InformationAsset | Risk | RiskTreatment | OperationalControl | Kpi) {
+function tableCells(kind: PageKind, row: InformationAsset | Risk | RiskTreatment | OperationalControl | Kpi, kpis: Kpi[]) {
   if (kind === "assets") {
     const asset = row as InformationAsset;
     return [asset.code, asset.name, asset.type, <Chip size="small" label={RISK_LEVEL_LABELS[asset.criticality]} />, `${asset.confidentiality}/${asset.integrity}/${asset.availability}`, truncate(asset.description)];
@@ -846,10 +822,11 @@ function tableCells(kind: PageKind, row: InformationAsset | Risk | RiskTreatment
   }
   if (kind === "controls") {
     const control = row as OperationalControl;
-    return [control.title, control.category, control.monitoringFrequency ?? "-", control.status, `${control.risks?.length ?? 0} riesgos`];
+    const linkedKpis = kpis.filter((item) => item.controlId === control.id).length;
+    return [control.title, control.category, control.monitoringFrequency ?? "-", control.status, `${control.risks?.length ?? 0} riesgos · ${linkedKpis} KPIs`];
   }
   const kpi = row as Kpi;
-  const latest = kpi.measurements?.[0];
+  const latest = sortMeasurementsDesc(kpi.measurements)[0];
   return [kpi.name, `${kpi.targetValue} ${kpi.unit}`, latest ? `${latest.value} · ${new Date(latest.measuredAt).toLocaleDateString()}` : "Sin mediciones", kpi.frequency, latest?.evidenceUrl ? <a href={latest.evidenceUrl} target="_blank" rel="noreferrer">Ver URL</a> : "-"];
 }
 
@@ -886,14 +863,6 @@ function toDateInput(value?: string | null) {
   return value ? value.slice(0, 10) : "";
 }
 
-function buildActionPayload(form: Record<string, string>) {
-  return { title: form.title, ownerName: form.ownerName, dueDate: form.dueDate || undefined, evidenceUrl: form.evidenceUrl || undefined, evidenceNotes: form.evidenceNotes || undefined };
-}
-
-function buildMeasurementPayload(form: Record<string, string>) {
-  return { measuredAt: form.measuredAt, value: Number(form.value), notes: form.notes || undefined, evidenceUrl: form.evidenceUrl || undefined };
-}
-
 function nullableNumber(value: string) {
   return value === "" ? undefined : Number(value);
 }
@@ -901,6 +870,280 @@ function nullableNumber(value: string) {
 function truncate(value?: string | null, maxLength = 60) {
   if (!value) return "-";
   return value.length > maxLength ? `${value.slice(0, maxLength)}…` : value;
+}
+
+function sortMeasurementsDesc(measurements: Kpi["measurements"] | undefined) {
+  return [...(measurements ?? [])].sort((a, b) => new Date(b.measuredAt).getTime() - new Date(a.measuredAt).getTime());
+}
+
+type KpiStatusColor = "success" | "warning" | "error" | "default";
+
+function kpiStatus(kpi: Kpi): { color: KpiStatusColor; label: string } {
+  const latest = sortMeasurementsDesc(kpi.measurements)[0];
+  if (!latest) return { color: "default", label: "Sin datos" };
+  const { value } = latest;
+  const { targetValue, warningValue, direction } = kpi;
+
+  if (direction === "HIGHER_IS_BETTER") {
+    if (value >= targetValue) return { color: "success", label: "En meta" };
+    if (warningValue != null && value >= warningValue) return { color: "warning", label: "Alerta" };
+    return { color: "error", label: "Fuera de meta" };
+  }
+  if (value <= targetValue) return { color: "success", label: "En meta" };
+  if (warningValue != null && value <= warningValue) return { color: "warning", label: "Alerta" };
+  return { color: "error", label: "Fuera de meta" };
+}
+
+const kpiFrequencies: KpiFrequency[] = ["DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "ANNUAL"];
+const kpiDirections: Array<{ value: KpiDirection; label: string }> = [
+  { value: "HIGHER_IS_BETTER", label: "Mayor es mejor" },
+  { value: "LOWER_IS_BETTER", label: "Menor es mejor" },
+];
+
+const initialKpiMiniForm = { name: "", unit: "", targetValue: "", frequency: "MONTHLY" as KpiFrequency, direction: "HIGHER_IS_BETTER" as KpiDirection };
+
+function ControlKpiPanel({
+  kpis,
+  controlId,
+  dispatch,
+  onViewMeasurements,
+}: {
+  kpis: Kpi[];
+  controlId: string;
+  dispatch: AppDispatch;
+  onViewMeasurements: (kpiId: string) => void;
+}) {
+  const [selectedKpiId, setSelectedKpiId] = useState("");
+  const [linking, setLinking] = useState(false);
+  const [miniForm, setMiniForm] = useState(initialKpiMiniForm);
+  const [creating, setCreating] = useState(false);
+  const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
+
+  const linkedKpis = kpis.filter((kpi) => kpi.controlId === controlId);
+  const unlinkedKpis = kpis.filter((kpi) => !kpi.controlId);
+
+  const unlink = async (kpiId: string) => {
+    setUnlinkingId(kpiId);
+    try {
+      await dispatch(updateRiskOperation({ resource: "kpis", id: kpiId, payload: { controlId: null } })).unwrap();
+      await dispatch(fetchRiskOperations());
+    } finally {
+      setUnlinkingId(null);
+    }
+  };
+
+  const linkExisting = async () => {
+    if (!selectedKpiId) return;
+    setLinking(true);
+    try {
+      await dispatch(updateRiskOperation({ resource: "kpis", id: selectedKpiId, payload: { controlId } })).unwrap();
+      await dispatch(fetchRiskOperations());
+      setSelectedKpiId("");
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  const createKpi = async () => {
+    if (!miniForm.name || !miniForm.unit || !miniForm.targetValue) return;
+    setCreating(true);
+    try {
+      await dispatch(
+        createRiskOperation({
+          resource: "kpis",
+          payload: {
+            name: miniForm.name,
+            unit: miniForm.unit,
+            targetValue: Number(miniForm.targetValue),
+            frequency: miniForm.frequency,
+            direction: miniForm.direction,
+            metricType: "NUMBER",
+            controlId,
+          },
+        }),
+      ).unwrap();
+      await dispatch(fetchRiskOperations());
+      setMiniForm(initialKpiMiniForm);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <Box sx={{ mt: 3 }}>
+      <Divider sx={{ mb: 2 }} />
+      <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>KPIs vinculados</Typography>
+
+      <Stack spacing={1.5} sx={{ mb: 2 }}>
+        {linkedKpis.map((kpi) => {
+          const latest = sortMeasurementsDesc(kpi.measurements)[0];
+          const status = kpiStatus(kpi);
+          return (
+            <Box key={kpi.id} sx={{ p: 1.5, borderRadius: 2, ...softSurfaceSx }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="body2" fontWeight={700} sx={wrapTextSx}>{kpi.name}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {`${latest?.value ?? "—"} / ${kpi.targetValue} ${kpi.unit}`}
+                  </Typography>
+                </Box>
+                <Chip size="small" color={status.color === "default" ? undefined : status.color} label={status.label} />
+              </Stack>
+              <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                <Button size="small" onClick={() => onViewMeasurements(kpi.id)}>Ver mediciones</Button>
+                <Button size="small" color="error" disabled={unlinkingId === kpi.id} onClick={() => unlink(kpi.id)}>
+                  {unlinkingId === kpi.id ? "Desvinculando..." : "Desvincular"}
+                </Button>
+              </Stack>
+            </Box>
+          );
+        })}
+        {!linkedKpis.length ? <Typography variant="body2" color="text.secondary">Sin KPIs vinculados todavía.</Typography> : null}
+      </Stack>
+
+      <Box sx={{ p: 1.5, borderRadius: 2, ...softSurfaceSx, mb: 2 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>Vincular KPI existente</Typography>
+        <Stack direction="row" spacing={1}>
+          <FormControl fullWidth size="small">
+            <InputLabel id="link-kpi-label">KPI</InputLabel>
+            <Select labelId="link-kpi-label" label="KPI" value={selectedKpiId} onChange={(event) => setSelectedKpiId(event.target.value)}>
+              {unlinkedKpis.map((kpi) => <MenuItem key={kpi.id} value={kpi.id}>{kpi.name}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <Button variant="outlined" disabled={!selectedKpiId || linking} onClick={linkExisting} sx={{ flexShrink: 0 }}>
+            {linking ? "Vinculando..." : "Vincular"}
+          </Button>
+        </Stack>
+      </Box>
+
+      <Box sx={{ p: 1.5, borderRadius: 2, ...softSurfaceSx }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>Crear KPI para este control</Typography>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" }, gap: 1.5 }}>
+          <TextField size="small" label="Nombre" value={miniForm.name} onChange={(event) => setMiniForm((current) => ({ ...current, name: event.target.value }))} />
+          <TextField size="small" label="Unidad" value={miniForm.unit} onChange={(event) => setMiniForm((current) => ({ ...current, unit: event.target.value }))} />
+          <TextField size="small" type="number" label="Meta" value={miniForm.targetValue} onChange={(event) => setMiniForm((current) => ({ ...current, targetValue: event.target.value }))} />
+          <FormControl fullWidth size="small">
+            <InputLabel id="mini-kpi-frequency-label">Frecuencia</InputLabel>
+            <Select labelId="mini-kpi-frequency-label" label="Frecuencia" value={miniForm.frequency} onChange={(event) => setMiniForm((current) => ({ ...current, frequency: event.target.value as KpiFrequency }))}>
+              {kpiFrequencies.map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <FormControl fullWidth size="small" sx={{ gridColumn: { xs: "1", sm: "1 / -1" } }}>
+            <InputLabel id="mini-kpi-direction-label">Dirección</InputLabel>
+            <Select labelId="mini-kpi-direction-label" label="Dirección" value={miniForm.direction} onChange={(event) => setMiniForm((current) => ({ ...current, direction: event.target.value as KpiDirection }))}>
+              {kpiDirections.map((option) => <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>)}
+            </Select>
+          </FormControl>
+        </Box>
+        <Button variant="contained" sx={{ mt: 1.5 }} disabled={!miniForm.name || !miniForm.unit || !miniForm.targetValue || creating} onClick={createKpi}>
+          {creating ? "Creando..." : "Crear KPI"}
+        </Button>
+      </Box>
+    </Box>
+  );
+}
+
+function TreatmentActionsPanel({
+  treatment,
+  controls,
+  kpis,
+  dispatch,
+}: {
+  treatment: RiskTreatment;
+  controls: OperationalControl[];
+  kpis: Kpi[];
+  dispatch: AppDispatch;
+}) {
+  const [miniForm, setMiniForm] = useState({ title: "", ownerName: "", dueDate: "", evidenceUrl: "", controlId: "", kpiId: "" });
+  const [submitting, setSubmitting] = useState(false);
+
+  const updateField = (field: keyof typeof miniForm, value: string) => setMiniForm((current) => ({ ...current, [field]: value }));
+
+  const selectControl = (controlId: string) => {
+    const controlKpi = kpis.find((kpi) => kpi.controlId === controlId);
+    setMiniForm((current) => ({ ...current, controlId, kpiId: controlKpi?.id ?? "" }));
+  };
+
+  const availableKpis = miniForm.controlId ? kpis.filter((kpi) => kpi.controlId === miniForm.controlId) : kpis;
+
+  const submit = async () => {
+    if (!miniForm.title) return;
+    setSubmitting(true);
+    try {
+      await dispatch(
+        createTreatmentAction({
+          treatmentId: treatment.id,
+          payload: {
+            title: miniForm.title,
+            ownerName: miniForm.ownerName || undefined,
+            dueDate: miniForm.dueDate || undefined,
+            evidenceUrl: miniForm.evidenceUrl || undefined,
+            controlId: miniForm.controlId || undefined,
+            kpiId: miniForm.kpiId || undefined,
+          },
+        }),
+      ).unwrap();
+      await dispatch(fetchRiskOperations());
+      setMiniForm({ title: "", ownerName: "", dueDate: "", evidenceUrl: "", controlId: "", kpiId: "" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Box sx={{ mt: 3 }}>
+      <Divider sx={{ mb: 2 }} />
+      <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>Acciones</Typography>
+
+      <Stack spacing={1.5} sx={{ mb: 2 }}>
+        {(treatment.actions ?? []).map((action) => (
+          <Box key={action.id} sx={{ p: 1.5, borderRadius: 2, ...softSurfaceSx }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="body2" fontWeight={700} sx={wrapTextSx}>{action.title}</Typography>
+                <Typography variant="caption" color="text.secondary" sx={wrapTextSx}>
+                  {action.ownerName || "Sin responsable"} {action.dueDate ? `· vence ${new Date(action.dueDate).toLocaleDateString()}` : ""}
+                </Typography>
+              </Box>
+              <Chip size="small" label={action.status} />
+            </Stack>
+            <Stack direction="row" spacing={1} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
+              {action.control ? <Chip size="small" variant="outlined" label={`Control: ${action.control.title}`} /> : null}
+              {action.kpi ? <Chip size="small" variant="outlined" label={`KPI: ${action.kpi.name}`} /> : null}
+            </Stack>
+          </Box>
+        ))}
+        {!(treatment.actions ?? []).length ? <Typography variant="body2" color="text.secondary">Sin acciones todavía.</Typography> : null}
+      </Stack>
+
+      <Box sx={{ p: 1.5, borderRadius: 2, ...softSurfaceSx }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>Agregar acción</Typography>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" }, gap: 1.5 }}>
+          <TextField size="small" label="Título" value={miniForm.title} onChange={(event) => updateField("title", event.target.value)} />
+          <TextField size="small" label="Responsable" value={miniForm.ownerName} onChange={(event) => updateField("ownerName", event.target.value)} />
+          <TextField size="small" type="date" label="Vencimiento" value={miniForm.dueDate} onChange={(event) => updateField("dueDate", event.target.value)} InputLabelProps={{ shrink: true }} />
+          <TextField size="small" label="URL de evidencia" value={miniForm.evidenceUrl} onChange={(event) => updateField("evidenceUrl", event.target.value)} />
+          <FormControl fullWidth size="small">
+            <InputLabel id="action-control-label">Control operacional</InputLabel>
+            <Select labelId="action-control-label" label="Control operacional" value={miniForm.controlId} onChange={(event) => selectControl(event.target.value)}>
+              <MenuItem value="">Sin control</MenuItem>
+              {controls.map((control) => <MenuItem key={control.id} value={control.id}>{control.title}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <FormControl fullWidth size="small" disabled={Boolean(miniForm.controlId)}>
+            <InputLabel id="action-kpi-label">KPI</InputLabel>
+            <Select labelId="action-kpi-label" label="KPI" value={miniForm.kpiId} onChange={(event) => updateField("kpiId", event.target.value)}>
+              <MenuItem value="">{miniForm.controlId ? "Ese control no tiene KPI" : "Sin KPI"}</MenuItem>
+              {availableKpis.map((kpi) => <MenuItem key={kpi.id} value={kpi.id}>{kpi.name}</MenuItem>)}
+            </Select>
+          </FormControl>
+        </Box>
+        <Button variant="contained" sx={{ mt: 1.5 }} disabled={!miniForm.title || submitting} onClick={submit}>
+          {submitting ? "Agregando..." : "Agregar acción"}
+        </Button>
+      </Box>
+    </Box>
+  );
 }
 
 export default RiskOperationsPage;

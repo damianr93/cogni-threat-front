@@ -19,6 +19,7 @@ import RisksPage from "../../pages/RisksPage";
 import RiskTreatmentPage from "../../pages/RiskTreatmentPage";
 import OperationalControlPage from "../../pages/OperationalControlPage";
 import KpisPage from "../../pages/KpisPage";
+import KpiDetailPage from "../../pages/risk-operations/KpiDetailPage";
 import AdminRiskSettingsPage from "../../pages/AdminRiskSettingsPage";
 import { useAppDispatch } from "../../shared/hooks/useAppDispatch";
 import { useAppSelector } from "../../shared/hooks/useAppSelector";
@@ -63,6 +64,7 @@ const ProtectedLayout = () => {
         <Route path="/risks" element={<RisksPage />} />
         <Route path="/risk-treatment" element={<RiskTreatmentPage />} />
         <Route path="/kpis" element={<KpisPage />} />
+        <Route path="/kpis/:id" element={<KpiDetailPage />} />
         <Route path="/operational-controls" element={<OperationalControlPage />} />
         <Route path="/admin" element={user?.role === "ADMIN" ? <AdminUsersPanel /> : <Navigate to="/" replace />} />
         <Route path="/admin/risk-settings" element={user?.role === "ADMIN" ? <AdminRiskSettingsPage /> : <Navigate to="/" replace />} />
