@@ -16,7 +16,11 @@ import {
   DialogActions,
   Fade,
   ToggleButtonGroup,
-  ToggleButton
+  ToggleButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from "@mui/material";
 import {
   Edit,
@@ -30,8 +34,10 @@ import {
   ViewStream,
   GridView
 } from "@mui/icons-material";
-import { useDashboardLayout, type WidgetId } from "../app/hooks/useDashboardLayout";
+import { useDashboardLayout, type WidgetId, type DashboardSlot } from "../app/hooks/useDashboardLayout";
 import { StateMessage, softSurfaceSx, surfaceSx } from "../shared/ui/surface";
+import { useAppSelector } from "../shared/hooks/useAppSelector";
+import type { Kpi } from "../shared/types/risk-operations";
 
 // Chart widgets
 import RansomwareGroupsBarChart from "../shared/components/widgets/charts/RansomwareGroupsBarChart";
@@ -42,7 +48,9 @@ import RansomwareSectorsChart from "../shared/components/widgets/charts/Ransomwa
 // Card widgets
 import RansomwareCard from "../shared/components/widgets/RansomwareCard";
 import RiskOperationsCard from "../shared/components/widgets/RiskOperationsCard";
+import KpiOperationsCard from "../shared/components/widgets/KpiOperationsCard";
 import TelegramCard from "../shared/components/widgets/TelegramCard";
+import KpiCard from "../shared/components/widgets/KpiCard";
 
 // ─── Widget registry ────────────────────────────────────────────────────────
 
@@ -97,12 +105,26 @@ const WIDGET_REGISTRY: Record<WidgetId, WidgetMeta> = {
     color: "#d6a84f",
     component: (props) => <RiskOperationsCard onExpand={() => {}} {...props} />
   },
+  "card-kpis": {
+    label: "Resumen de KPIs",
+    subtitle: "Indicadores y mediciones de controles",
+    category: "risk",
+    color: "#8b5cf6",
+    component: (props) => <KpiOperationsCard onExpand={() => {}} {...props} />
+  },
   "card-telegram": {
     label: "Telegram Channels",
     subtitle: "Mensajes recientes de canales",
     category: "general",
     color: "#3b82f6",
     component: (props) => <TelegramCard onExpand={() => {}} {...props} />
+  },
+  "card-kpi-single": {
+    label: "KPI individual",
+    subtitle: "Elegí un indicador puntual",
+    category: "risk",
+    color: "#8b5cf6",
+    component: () => null
   }
 };
 
@@ -175,11 +197,13 @@ const EditOverlay: React.FC<{
 
 const AddWidgetDialog: React.FC<{
   open: boolean;
-  currentSlots: WidgetId[];
-  onAdd: (id: WidgetId) => void;
+  currentSlots: DashboardSlot[];
+  kpis: Kpi[];
+  onAdd: (id: WidgetId, kpiId?: string) => void;
   onRemove: (index: number) => void;
   onClose: () => void;
-}> = ({ open, currentSlots, onAdd, onRemove, onClose }) => {
+}> = ({ open, currentSlots, kpis, onAdd, onRemove, onClose }) => {
+  const [selectedKpiId, setSelectedKpiId] = useState("");
   const categories = [
     { key: "ransomware", label: "Ransomware", color: "#ef4444" },
     { key: "risk", label: "Riesgos", color: "#d6a84f" },
@@ -221,7 +245,75 @@ const AddWidgetDialog: React.FC<{
               <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 1.5 }}>
                 {widgets.map((id) => {
                   const meta = WIDGET_REGISTRY[id];
-                  const addedIndex = currentSlots.indexOf(id);
+
+                  if (id === "card-kpi-single") {
+                    const kpiSlots = currentSlots
+                      .map((slot, idx) => ({ slot, idx }))
+                      .filter(({ slot }) => slot.widgetId === "card-kpi-single");
+                    return (
+                      <Paper
+                        key={id}
+                        elevation={0}
+                        sx={{
+                          ...softSurfaceSx,
+                          p: 2,
+                          borderRadius: 2,
+                          border: "1px solid rgba(148, 163, 184, 0.15)",
+                          cursor: "default",
+                          gridColumn: "1 / -1"
+                        }}
+                      >
+                        <Stack spacing={1.5}>
+                          <Box>
+                            <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 600 }}>
+                              {meta.label}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: "#64748b" }}>
+                              {meta.subtitle}
+                            </Typography>
+                          </Box>
+                          <Stack direction="row" spacing={1}>
+                            <FormControl fullWidth size="small">
+                              <InputLabel id="add-kpi-select-label">KPI</InputLabel>
+                              <Select
+                                labelId="add-kpi-select-label"
+                                label="KPI"
+                                value={selectedKpiId}
+                                onChange={(event) => setSelectedKpiId(event.target.value)}
+                              >
+                                {kpis.map((kpi) => <MenuItem key={kpi.id} value={kpi.id}>{kpi.name}</MenuItem>)}
+                              </Select>
+                            </FormControl>
+                            <Button
+                              variant="outlined"
+                              disabled={!selectedKpiId}
+                              onClick={() => {
+                                onAdd("card-kpi-single", selectedKpiId);
+                                setSelectedKpiId("");
+                              }}
+                              sx={{ flexShrink: 0 }}
+                            >
+                              Agregar
+                            </Button>
+                          </Stack>
+                          {kpiSlots.length ? (
+                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                              {kpiSlots.map(({ slot, idx }) => (
+                                <Chip
+                                  key={idx}
+                                  size="small"
+                                  label={kpis.find((kpi) => kpi.id === slot.kpiId)?.name ?? slot.kpiId}
+                                  onDelete={() => onRemove(idx)}
+                                />
+                              ))}
+                            </Stack>
+                          ) : null}
+                        </Stack>
+                      </Paper>
+                    );
+                  }
+
+                  const addedIndex = currentSlots.findIndex((slot) => slot.widgetId === id);
                   const isAdded = addedIndex !== -1;
                   return (
                     <Paper
@@ -281,6 +373,7 @@ const CustomDashboard: React.FC = () => {
   const { layout, setColumns, addWidget, removeWidget, moveUp, moveDown } = useDashboardLayout();
   const [editMode, setEditMode] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const kpis = useAppSelector((state) => state.riskOperations.kpis);
 
   const gridCols = layout.columns;
 
@@ -369,12 +462,12 @@ const CustomDashboard: React.FC = () => {
               gap: 3
             }}
           >
-            {layout.slots.map((widgetId, index) => {
-              const meta = WIDGET_REGISTRY[widgetId];
+            {layout.slots.map((slot, index) => {
+              const meta = WIDGET_REGISTRY[slot.widgetId];
               if (!meta) return null;
               const WidgetComponent = meta.component;
               return (
-                <Fade key={`${widgetId}-${index}`} in timeout={400 + index * 80}>
+                <Fade key={`${slot.widgetId}-${index}`} in timeout={400 + index * 80}>
                   <Box sx={{ position: "relative" }}>
                     {editMode && (
                       <EditOverlay
@@ -385,7 +478,7 @@ const CustomDashboard: React.FC = () => {
                         onRemove={() => removeWidget(index)}
                       />
                     )}
-                    <WidgetComponent />
+                    {slot.widgetId === "card-kpi-single" && slot.kpiId ? <KpiCard kpiId={slot.kpiId} /> : <WidgetComponent />}
                   </Box>
                 </Fade>
               );
@@ -397,7 +490,8 @@ const CustomDashboard: React.FC = () => {
         <AddWidgetDialog
           open={showAddDialog}
           currentSlots={layout.slots}
-          onAdd={(id) => addWidget(id)}
+          kpis={kpis}
+          onAdd={addWidget}
           onRemove={(idx) => removeWidget(idx)}
           onClose={() => setShowAddDialog(false)}
         />
