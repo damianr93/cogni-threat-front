@@ -12,6 +12,7 @@ import {
   FormControl,
   IconButton,
   InputLabel,
+  Link,
   MenuItem,
   Paper,
   Select,
@@ -285,7 +286,7 @@ const RiskOperationsPage = ({ kind }: RiskOperationsPageProps) => {
         ) : null}
         {kind === "treatments" && editingId ? (() => {
           const treatment = treatments.find((item) => item.id === editingId);
-          return treatment ? <TreatmentActionsPanel treatment={treatment} controls={controls} kpis={kpis} dispatch={dispatch} /> : null;
+          return treatment ? <TreatmentActionsPanel treatment={treatment} controls={controls} kpis={kpis} dispatch={dispatch} onViewMeasurements={(kpiId: string) => navigate(`/kpis/${kpiId}`)} /> : null;
         })() : null}
         {kind === "risks" && editingId ? (() => {
           const treatment = treatments.find((item) => item.riskId === editingId);
@@ -297,7 +298,7 @@ const RiskOperationsPage = ({ kind }: RiskOperationsPageProps) => {
               </Box>
             );
           }
-          return <TreatmentActionsPanel treatment={treatment} controls={controls} kpis={kpis} dispatch={dispatch} />;
+          return <TreatmentActionsPanel treatment={treatment} controls={controls} kpis={kpis} dispatch={dispatch} onViewMeasurements={(kpiId: string) => navigate(`/kpis/${kpiId}`)} />;
         })() : null}
       </FormDrawer>
     </Box>
@@ -1057,15 +1058,18 @@ function TreatmentActionsPanel({
   controls,
   kpis,
   dispatch,
+  onViewMeasurements,
 }: {
   treatment: RiskTreatment;
   controls: OperationalControl[];
   kpis: Kpi[];
   dispatch: AppDispatch;
+  onViewMeasurements: (kpiId: string) => void;
 }) {
   const [miniForm, setMiniForm] = useState({ title: "", ownerName: "", dueDate: "", evidenceUrl: "", controlId: "", kpiId: "" });
   const [submitting, setSubmitting] = useState(false);
   const [updatingActionId, setUpdatingActionId] = useState<string | null>(null);
+  const [completionEvidence, setCompletionEvidence] = useState<Record<string, { evidenceUrl: string; evidenceNotes: string }>>({});
 
   const updateField = (field: keyof typeof miniForm, value: string) => setMiniForm((current) => ({ ...current, [field]: value }));
 
@@ -1076,7 +1080,18 @@ function TreatmentActionsPanel({
 
   const availableKpis = miniForm.controlId ? kpis.filter((kpi) => kpi.controlId === miniForm.controlId) : kpis;
 
-  const changeActionStatus = async (actionId: string, status: TreatmentActionStatus) => {
+  const updateCompletionEvidence = (actionId: string, field: "evidenceUrl" | "evidenceNotes", value: string) => {
+    setCompletionEvidence((current) => ({
+      ...current,
+      [actionId]: {
+        evidenceUrl: current[actionId]?.evidenceUrl ?? "",
+        evidenceNotes: current[actionId]?.evidenceNotes ?? "",
+        [field]: value,
+      },
+    }));
+  };
+
+  const changeActionStatus = async (actionId: string, status: TreatmentActionStatus, evidence?: { evidenceUrl: string; evidenceNotes: string }) => {
     setUpdatingActionId(actionId);
     try {
       await dispatch(
@@ -1085,6 +1100,8 @@ function TreatmentActionsPanel({
           payload: {
             status,
             completedAt: status === "COMPLETED" ? new Date().toISOString() : null,
+            evidenceUrl: evidence?.evidenceUrl || undefined,
+            evidenceNotes: evidence?.evidenceNotes || undefined,
           },
         }),
       ).unwrap();
@@ -1092,6 +1109,11 @@ function TreatmentActionsPanel({
     } finally {
       setUpdatingActionId(null);
     }
+  };
+
+  const completeAction = (actionId: string, evidence: { evidenceUrl: string; evidenceNotes: string }) => {
+    if (!evidence.evidenceUrl.trim() && !evidence.evidenceNotes.trim()) return;
+    return changeActionStatus(actionId, "COMPLETED", evidence);
   };
 
   const submit = async () => {
@@ -1124,7 +1146,11 @@ function TreatmentActionsPanel({
       <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>Acciones</Typography>
 
       <Stack spacing={1.5} sx={{ mb: 2 }}>
-        {(treatment.actions ?? []).map((action) => (
+        {(treatment.actions ?? []).map((action) => {
+          const evidence = completionEvidence[action.id] ?? { evidenceUrl: action.evidenceUrl ?? "", evidenceNotes: action.evidenceNotes ?? "" };
+          const hasCompletionEvidence = Boolean(evidence.evidenceUrl.trim() || evidence.evidenceNotes.trim());
+
+          return (
           <Box key={action.id} sx={{ p: 1.5, borderRadius: 2, ...softSurfaceSx }}>
             <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
               <Box sx={{ minWidth: 0 }}>
@@ -1137,14 +1163,27 @@ function TreatmentActionsPanel({
             </Stack>
             <Stack direction="row" spacing={1} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
               {action.control ? <Chip size="small" variant="outlined" label={`Control: ${action.control.title}`} /> : null}
-              {action.kpi ? <Chip size="small" variant="outlined" label={`KPI: ${action.kpi.name}`} /> : null}
+              {action.kpi ? <Link component="button" variant="body2" onClick={() => onViewMeasurements(action.kpi!.id)}>KPI: {action.kpi.name}</Link> : null}
             </Stack>
+            {action.status !== "COMPLETED" && action.status !== "CANCELLED" ? (
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" }, gap: 1, mt: 1.5 }}>
+                <TextField size="small" label="URL de evidencia" value={evidence.evidenceUrl} onChange={(event) => updateCompletionEvidence(action.id, "evidenceUrl", event.target.value)} />
+                <TextField size="small" label="Descripción de evidencia" value={evidence.evidenceNotes} onChange={(event) => updateCompletionEvidence(action.id, "evidenceNotes", event.target.value)} />
+              </Box>
+            ) : null}
+            {action.status === "COMPLETED" && (action.evidenceUrl || action.evidenceNotes) ? (
+              <Box sx={{ mt: 1.5, p: 1, borderRadius: 1.5, ...softSurfaceSx }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>Evidencia</Typography>
+                {action.evidenceUrl ? <Link href={action.evidenceUrl} target="_blank" rel="noreferrer" variant="body2">Ver enlace</Link> : null}
+                {action.evidenceNotes ? <Typography variant="body2" sx={wrapTextSx}>{action.evidenceNotes}</Typography> : null}
+              </Box>
+            ) : null}
             <Stack direction="row" spacing={1} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
               {action.status === "PENDING" ? (
                 <Button size="small" disabled={updatingActionId === action.id} onClick={() => changeActionStatus(action.id, "IN_PROGRESS")}>Iniciar</Button>
               ) : null}
               {action.status !== "COMPLETED" && action.status !== "CANCELLED" ? (
-                <Button size="small" variant="contained" disabled={updatingActionId === action.id} onClick={() => changeActionStatus(action.id, "COMPLETED")}>Marcar realizada</Button>
+                <Button size="small" variant="contained" disabled={updatingActionId === action.id || !hasCompletionEvidence} onClick={() => completeAction(action.id, evidence)}>Marcar realizada</Button>
               ) : null}
               {action.status === "COMPLETED" || action.status === "CANCELLED" ? (
                 <Button size="small" disabled={updatingActionId === action.id} onClick={() => changeActionStatus(action.id, "PENDING")}>Reabrir</Button>
@@ -1155,7 +1194,8 @@ function TreatmentActionsPanel({
               {action.completedAt ? <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center" }}>Realizada {new Date(action.completedAt).toLocaleDateString()}</Typography> : null}
             </Stack>
           </Box>
-        ))}
+          );
+        })}
         {!(treatment.actions ?? []).length ? <Typography variant="body2" color="text.secondary">Sin acciones todavía.</Typography> : null}
       </Stack>
 
