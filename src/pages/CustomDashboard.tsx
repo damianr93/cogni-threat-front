@@ -1,5 +1,5 @@
 import PageHeader from "../shared/components/PageHeader";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Container,
@@ -37,6 +37,8 @@ import {
 import { useDashboardLayout, type WidgetId, type DashboardSlot } from "../app/hooks/useDashboardLayout";
 import { StateMessage, softSurfaceSx, surfaceSx } from "../shared/ui/surface";
 import { useAppSelector } from "../shared/hooks/useAppSelector";
+import { useAppDispatch } from "../shared/hooks/useAppDispatch";
+import { fetchRiskOperations } from "../store/slices/riskOperations/riskOperationsSlice";
 import type { Kpi } from "../shared/types/risk-operations";
 
 // Chart widgets
@@ -199,10 +201,11 @@ const AddWidgetDialog: React.FC<{
   open: boolean;
   currentSlots: DashboardSlot[];
   kpis: Kpi[];
+  kpisLoading: boolean;
   onAdd: (id: WidgetId, kpiId?: string) => void;
   onRemove: (index: number) => void;
   onClose: () => void;
-}> = ({ open, currentSlots, kpis, onAdd, onRemove, onClose }) => {
+}> = ({ open, currentSlots, kpis, kpisLoading, onAdd, onRemove, onClose }) => {
   const [selectedKpiId, setSelectedKpiId] = useState("");
   const categories = [
     { key: "ransomware", label: "Ransomware", color: "#ef4444" },
@@ -273,7 +276,7 @@ const AddWidgetDialog: React.FC<{
                             </Typography>
                           </Box>
                           <Stack direction="row" spacing={1}>
-                            <FormControl fullWidth size="small">
+                            <FormControl fullWidth size="small" disabled={kpisLoading || kpis.length === 0}>
                               <InputLabel id="add-kpi-select-label">KPI</InputLabel>
                               <Select
                                 labelId="add-kpi-select-label"
@@ -281,6 +284,8 @@ const AddWidgetDialog: React.FC<{
                                 value={selectedKpiId}
                                 onChange={(event) => setSelectedKpiId(event.target.value)}
                               >
+                                {kpisLoading ? <MenuItem value="">Cargando KPIs...</MenuItem> : null}
+                                {!kpisLoading && kpis.length === 0 ? <MenuItem value="">No hay KPIs disponibles</MenuItem> : null}
                                 {kpis.map((kpi) => <MenuItem key={kpi.id} value={kpi.id}>{kpi.name}</MenuItem>)}
                               </Select>
                             </FormControl>
@@ -370,10 +375,17 @@ const AddWidgetDialog: React.FC<{
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 const CustomDashboard: React.FC = () => {
+  const dispatch = useAppDispatch();
   const { layout, setColumns, addWidget, removeWidget, moveUp, moveDown } = useDashboardLayout();
   const [editMode, setEditMode] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const kpis = useAppSelector((state) => state.riskOperations.kpis);
+  const { kpis, loading } = useAppSelector((state) => state.riskOperations);
+
+  useEffect(() => {
+    if (!loading && kpis.length === 0) {
+      dispatch(fetchRiskOperations());
+    }
+  }, [dispatch, loading, kpis.length]);
 
   const gridCols = layout.columns;
 
@@ -491,6 +503,7 @@ const CustomDashboard: React.FC = () => {
           open={showAddDialog}
           currentSlots={layout.slots}
           kpis={kpis}
+          kpisLoading={loading}
           onAdd={addWidget}
           onRemove={(idx) => removeWidget(idx)}
           onClose={() => setShowAddDialog(false)}

@@ -3,7 +3,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   Box,
   Button,
+  Chip,
   Container,
+  LinearProgress,
   Paper,
   Stack,
   Table,
@@ -96,6 +98,12 @@ const KpiDetailPage = () => {
   const measurementsAsc = sortMeasurementsAsc(kpi.measurements);
   const measurementsDesc = sortMeasurementsDesc(kpi.measurements);
   const chartDataset = measurementsAsc.map((measurement) => ({ ...measurement, target: kpi.targetValue }));
+  const latest = measurementsAsc.at(-1);
+  const previous = measurementsAsc.length > 1 ? measurementsAsc.at(-2) : undefined;
+  const trend = latest && previous ? latest.value - previous.value : null;
+  const progress = latest && kpi.targetValue !== 0 ? Math.min(100, Math.round((latest.value / kpi.targetValue) * 100)) : 0;
+  const status = latest ? kpiStatus(kpi, latest.value) : { color: "default" as const, label: "Sin datos" };
+  const statusAccent = statusColor(status.color);
 
   return (
     <Box sx={{ minHeight: "100vh", pb: 4 }}>
@@ -104,27 +112,51 @@ const KpiDetailPage = () => {
         <Stack spacing={3}>
           <AppCard>
             <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
+              <Stack spacing={2.5}>
+                <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", md: "flex-start" }} spacing={2}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="overline" color="text.secondary">Evolución del indicador</Typography>
+                    <Typography variant="h5" fontWeight={900} sx={wrapTextSx}>{kpi.name}</Typography>
+                  </Box>
+                  <Chip size="small" sx={{ bgcolor: `${statusAccent}22`, color: statusAccent, fontWeight: 800, alignSelf: { xs: "flex-start", md: "center" } }} label={status.label} />
+                </Stack>
+
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", lg: "repeat(4, minmax(0, 1fr))" }, gap: 1.5 }}>
+                  <KpiMetric label="Valor actual" value={latest ? `${latest.value} ${kpi.unit}` : "--"} helper={latest ? new Date(latest.measuredAt).toLocaleDateString() : "Sin mediciones"} accent={statusAccent} />
+                  <KpiMetric label="Meta" value={`${kpi.targetValue} ${kpi.unit}`} helper={`${progress}% del objetivo`} accent="#8b5cf6" progress={progress} />
+                  <KpiMetric label="Tendencia" value={trend == null ? "--" : `${trend >= 0 ? "+" : ""}${trend}`} helper="vs medición anterior" accent={trend == null ? "#64748b" : trend >= 0 ? "#22c55e" : "#ef4444"} />
+                  <KpiMetric label="Mediciones" value={String(measurementsAsc.length)} helper="registros cargados" accent="#38bdf8" />
+                </Box>
+
               {chartDataset.length ? (
-                <LineChart
-                  dataset={chartDataset}
-                  xAxis={[{ scaleType: "band", dataKey: "measuredAt", valueFormatter: (value: string) => new Date(value).toLocaleDateString() }]}
-                  series={[
-                    { dataKey: "value", label: kpi.name, color: "#8b5cf6", showMark: true },
-                    { dataKey: "target", label: "Meta", color: "#64748b", showMark: false },
-                  ]}
-                  height={220}
-                  margin={{ left: 45, right: 15, top: 20, bottom: 45 }}
-                  sx={{
-                    "& .MuiChartsAxis-line": { stroke: "rgba(255,255,255,0.06)" },
-                    "& .MuiChartsAxis-tick": { stroke: "rgba(255,255,255,0.06)" },
-                    "& .MuiChartsGrid-line": { stroke: "rgba(255,255,255,0.04)" },
-                    "& .MuiLineElement-root": { strokeWidth: 2 },
-                    "& .MuiMarkElement-root": { stroke: "#8b5cf6", strokeWidth: 2, fill: "#0c1220" },
-                  }}
-                />
+                <Box sx={{ borderRadius: 2, border: "1px solid rgba(148, 163, 184, 0.14)", bgcolor: "rgba(15, 23, 42, 0.42)", p: { xs: 1, sm: 1.5 }, overflowX: "auto" }}>
+                  <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap sx={{ px: 1, pt: 0.5, mb: 1 }}>
+                    <LegendDot color="#8b5cf6" label="Valor medido" />
+                    <LegendDot color="#64748b" label="Meta" />
+                  </Stack>
+                  <LineChart
+                    dataset={chartDataset}
+                    xAxis={[{ scaleType: "band", dataKey: "measuredAt", valueFormatter: (value: string) => new Date(value).toLocaleDateString() }]}
+                    series={[
+                      { dataKey: "value", color: "#8b5cf6", showMark: true },
+                      { dataKey: "target", color: "#64748b", showMark: false },
+                    ]}
+                    height={280}
+                    margin={{ left: 45, right: 18, top: 20, bottom: 42 }}
+                    sx={{
+                      minWidth: { xs: 640, md: "auto" },
+                      "& .MuiChartsAxis-line": { stroke: "rgba(255,255,255,0.08)" },
+                      "& .MuiChartsAxis-tick": { stroke: "rgba(255,255,255,0.08)" },
+                      "& .MuiChartsGrid-line": { stroke: "rgba(255,255,255,0.05)" },
+                      "& .MuiLineElement-root": { strokeWidth: 3 },
+                      "& .MuiMarkElement-root": { stroke: "#8b5cf6", strokeWidth: 2, fill: "#0c1220" },
+                    }}
+                  />
+                </Box>
               ) : (
                 <Typography variant="body2" color="text.secondary">Sin mediciones registradas todavía.</Typography>
               )}
+              </Stack>
             </Box>
           </AppCard>
 
@@ -187,6 +219,45 @@ function sortMeasurementsAsc(measurements: Kpi["measurements"] | undefined) {
 
 function sortMeasurementsDesc(measurements: Kpi["measurements"] | undefined) {
   return [...(measurements ?? [])].sort((a, b) => new Date(b.measuredAt).getTime() - new Date(a.measuredAt).getTime());
+}
+
+function kpiStatus(kpi: Kpi, value: number): { color: "success" | "warning" | "error" | "default"; label: string } {
+  const { targetValue, warningValue, direction } = kpi;
+  if (direction === "HIGHER_IS_BETTER") {
+    if (value >= targetValue) return { color: "success", label: "En meta" };
+    if (warningValue != null && value >= warningValue) return { color: "warning", label: "Alerta" };
+    return { color: "error", label: "Fuera de meta" };
+  }
+  if (value <= targetValue) return { color: "success", label: "En meta" };
+  if (warningValue != null && value <= warningValue) return { color: "warning", label: "Alerta" };
+  return { color: "error", label: "Fuera de meta" };
+}
+
+function statusColor(color: "success" | "warning" | "error" | "default") {
+  if (color === "success") return "#22c55e";
+  if (color === "warning") return "#f59e0b";
+  if (color === "error") return "#ef4444";
+  return "#8b5cf6";
+}
+
+function KpiMetric({ label, value, helper, accent, progress }: { label: string; value: string; helper: string; accent: string; progress?: number }) {
+  return (
+    <Box sx={{ p: 1.5, borderRadius: 2, border: "1px solid rgba(148, 163, 184, 0.14)", bgcolor: "rgba(15, 23, 42, 0.42)", minWidth: 0 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>{label}</Typography>
+      <Typography variant="h5" sx={{ color: accent, fontWeight: 900, mt: 0.5, ...wrapTextSx }}>{value}</Typography>
+      {progress != null ? <LinearProgress variant="determinate" value={progress} sx={{ height: 6, borderRadius: 999, my: 0.75, bgcolor: "rgba(148, 163, 184, 0.16)", "& .MuiLinearProgress-bar": { bgcolor: accent, borderRadius: 999 } }} /> : null}
+      <Typography variant="caption" color="text.secondary" sx={wrapTextSx}>{helper}</Typography>
+    </Box>
+  );
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <Stack direction="row" spacing={0.75} alignItems="center">
+      <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: color }} />
+      <Typography variant="caption" color="text.secondary" fontWeight={700}>{label}</Typography>
+    </Stack>
+  );
 }
 
 export default KpiDetailPage;
