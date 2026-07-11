@@ -28,6 +28,7 @@ import {
 } from "@mui/icons-material";
 import { api } from "../shared/utils/api";
 import PageHeader from "../shared/components/PageHeader";
+import TelegramMessageHtml from "../shared/components/TelegramMessageHtml";
 
 export type AlertHistoryItem = {
   id: string;
@@ -406,19 +407,9 @@ const Home: React.FC = () => {
                       <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ display: "block", mb: 0.5 }}>
                         Mensaje enviado a Telegram
                       </Typography>
-                      <Typography
-                        component="pre"
-                        sx={{
-                          fontSize: "0.875rem",
-                          lineHeight: 1.5,
-                          fontFamily: "inherit",
-                          m: 0,
-                          whiteSpace: "pre-wrap",
-                          wordBreak: "break-word",
-                        }}
-                      >
-                        {(alert.payload as { telegramMessage?: string }).telegramMessage || ""}
-                      </Typography>
+                      <TelegramMessageHtml
+                        html={(alert.payload as { telegramMessage?: string }).telegramMessage || ""}
+                      />
                     </Paper>
                   )}
                 </Paper>
