@@ -42,14 +42,13 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    id: "intelligence",
-    title: "Inteligencia",
+    id: "monitoring",
+    title: "Monitoreo",
     items: [
       { path: "/ransomware", label: "Ransomware", icon: SecurityIcon },
       { path: "/ransomware-groups", label: "Grupos de ransomware", icon: GroupsIcon },
       { path: "/actors", label: "Actores", icon: PersonIcon },
       { path: "/vuln-monitor", label: "Vulnerabilidades", icon: GppBadIcon },
-      { path: "/alerts-config", label: "Alertas", icon: NotificationsActiveIcon },
       { path: "/telegram-alerts", label: "Canales de Telegram", icon: TelegramIcon },
     ],
   },
@@ -68,6 +67,13 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { path: "/kpis", label: "KPIs", icon: AssessmentIcon },
       { path: "/operational-controls", label: "Control operacional", icon: SettingsIcon },
+    ],
+  },
+  {
+    id: "configuration",
+    title: "Configuración",
+    items: [
+      { path: "/alerts-config", label: "Alertas", icon: NotificationsActiveIcon },
     ],
   },
   {
