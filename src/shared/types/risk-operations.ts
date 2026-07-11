@@ -227,3 +227,10 @@ export const TREATMENT_STATUS_LABELS: Record<TreatmentStatus, string> = {
   IMPLEMENTED: "Implementado",
   VERIFIED: "Verificado",
 };
+
+export const TREATMENT_ACTION_STATUS_LABELS: Record<TreatmentActionStatus, string> = {
+  PENDING: "Pendiente",
+  IN_PROGRESS: "En progreso",
+  COMPLETED: "Realizada",
+  CANCELLED: "Cancelada",
+};

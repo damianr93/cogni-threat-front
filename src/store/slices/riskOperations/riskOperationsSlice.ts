@@ -88,6 +88,14 @@ export const createTreatmentAction = createAsyncThunk(
   },
 );
 
+export const updateTreatmentAction = createAsyncThunk(
+  "riskOperations/updateAction",
+  async ({ id, payload }: { id: string; payload: Record<string, unknown> }) => {
+    const response = await api.put<TreatmentAction>(`/risk-operations/actions/${id}`, payload);
+    return response.data;
+  },
+);
+
 export const createKpiMeasurement = createAsyncThunk(
   "riskOperations/createMeasurement",
   async ({ kpiId, payload }: { kpiId: string; payload: Record<string, unknown> }) => {
@@ -156,6 +164,17 @@ const riskOperationsSlice = createSlice({
       .addCase(createTreatmentAction.rejected, (state, action) => {
         state.saving = false;
         state.error = action.error.message ?? "No se pudo guardar la acción";
+      })
+      .addCase(updateTreatmentAction.pending, (state) => {
+        state.saving = true;
+        state.error = null;
+      })
+      .addCase(updateTreatmentAction.fulfilled, (state) => {
+        state.saving = false;
+      })
+      .addCase(updateTreatmentAction.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.error.message ?? "No se pudo actualizar la acción";
       })
       .addCase(createKpiMeasurement.pending, (state) => {
         state.saving = true;

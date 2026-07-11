@@ -36,12 +36,14 @@ import {
   createRiskOperation,
   createTreatmentAction,
   fetchRiskOperations,
+  updateTreatmentAction,
   updateRiskOperation,
 } from "../../store/slices/riskOperations/riskOperationsSlice";
 import type { AppDispatch } from "../../store/store";
 import {
   RISK_LEVEL_LABELS,
   RISK_STATUS_LABELS,
+  TREATMENT_ACTION_STATUS_LABELS,
   TREATMENT_OPTION_LABELS,
   TREATMENT_STATUS_LABELS,
   type InformationAsset,
@@ -55,6 +57,7 @@ import {
   type RiskLevel,
   type RiskStatus,
   type RiskTreatment,
+  type TreatmentActionStatus,
   type TreatmentOption,
   type TreatmentStatus,
 } from "../../shared/types/risk-operations";
@@ -87,6 +90,12 @@ const riskLevels: RiskLevel[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 const riskStatuses: RiskStatus[] = ["IDENTIFIED", "ANALYZED", "TREATMENT_DEFINED", "TREATED", "ACCEPTED", "CLOSED"];
 const treatmentOptions: TreatmentOption[] = ["MITIGATE", "ACCEPT", "TRANSFER", "AVOID"];
 const treatmentStatuses: TreatmentStatus[] = ["PLANNED", "IN_PROGRESS", "IMPLEMENTED", "VERIFIED"];
+const treatmentActionStatusColors: Record<TreatmentActionStatus, "default" | "info" | "success" | "warning"> = {
+  PENDING: "default",
+  IN_PROGRESS: "info",
+  COMPLETED: "success",
+  CANCELLED: "warning",
+};
 const scoreOptions = [1, 2, 3, 4, 5];
 
 const wrapTextSx = { minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" } as const;
@@ -1056,6 +1065,7 @@ function TreatmentActionsPanel({
 }) {
   const [miniForm, setMiniForm] = useState({ title: "", ownerName: "", dueDate: "", evidenceUrl: "", controlId: "", kpiId: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [updatingActionId, setUpdatingActionId] = useState<string | null>(null);
 
   const updateField = (field: keyof typeof miniForm, value: string) => setMiniForm((current) => ({ ...current, [field]: value }));
 
@@ -1065,6 +1075,24 @@ function TreatmentActionsPanel({
   };
 
   const availableKpis = miniForm.controlId ? kpis.filter((kpi) => kpi.controlId === miniForm.controlId) : kpis;
+
+  const changeActionStatus = async (actionId: string, status: TreatmentActionStatus) => {
+    setUpdatingActionId(actionId);
+    try {
+      await dispatch(
+        updateTreatmentAction({
+          id: actionId,
+          payload: {
+            status,
+            completedAt: status === "COMPLETED" ? new Date().toISOString() : null,
+          },
+        }),
+      ).unwrap();
+      await dispatch(fetchRiskOperations());
+    } finally {
+      setUpdatingActionId(null);
+    }
+  };
 
   const submit = async () => {
     if (!miniForm.title) return;
@@ -1105,11 +1133,26 @@ function TreatmentActionsPanel({
                   {action.ownerName || "Sin responsable"} {action.dueDate ? `· vence ${new Date(action.dueDate).toLocaleDateString()}` : ""}
                 </Typography>
               </Box>
-              <Chip size="small" label={action.status} />
+              <Chip size="small" color={treatmentActionStatusColors[action.status]} label={TREATMENT_ACTION_STATUS_LABELS[action.status]} />
             </Stack>
             <Stack direction="row" spacing={1} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
               {action.control ? <Chip size="small" variant="outlined" label={`Control: ${action.control.title}`} /> : null}
               {action.kpi ? <Chip size="small" variant="outlined" label={`KPI: ${action.kpi.name}`} /> : null}
+            </Stack>
+            <Stack direction="row" spacing={1} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
+              {action.status === "PENDING" ? (
+                <Button size="small" disabled={updatingActionId === action.id} onClick={() => changeActionStatus(action.id, "IN_PROGRESS")}>Iniciar</Button>
+              ) : null}
+              {action.status !== "COMPLETED" && action.status !== "CANCELLED" ? (
+                <Button size="small" variant="contained" disabled={updatingActionId === action.id} onClick={() => changeActionStatus(action.id, "COMPLETED")}>Marcar realizada</Button>
+              ) : null}
+              {action.status === "COMPLETED" || action.status === "CANCELLED" ? (
+                <Button size="small" disabled={updatingActionId === action.id} onClick={() => changeActionStatus(action.id, "PENDING")}>Reabrir</Button>
+              ) : null}
+              {action.status !== "COMPLETED" && action.status !== "CANCELLED" ? (
+                <Button size="small" color="warning" disabled={updatingActionId === action.id} onClick={() => changeActionStatus(action.id, "CANCELLED")}>Cancelar</Button>
+              ) : null}
+              {action.completedAt ? <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center" }}>Realizada {new Date(action.completedAt).toLocaleDateString()}</Typography> : null}
             </Stack>
           </Box>
         ))}
