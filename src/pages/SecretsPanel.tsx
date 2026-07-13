@@ -27,6 +27,8 @@ import {
 } from "@mui/material";
 import {
   DeleteOutline,
+  Pause,
+  PlayArrow,
   Refresh,
   Science,
   Telegram as TelegramIcon,
@@ -34,6 +36,7 @@ import {
 } from "@mui/icons-material";
 import PageHeader from "../shared/components/PageHeader";
 import { api } from "../shared/utils/api";
+import { AI_ENDPOINTS } from "../shared/constants";
 
 type SecretSource = "db" | "env" | "none";
 
@@ -55,6 +58,18 @@ interface TelegramStatus {
   channels: string[];
   monitoringCount: number;
   pendingLogin: boolean;
+}
+
+interface EmbeddingSyncStatus {
+  paused: boolean;
+  manualPaused: boolean;
+  activeInteractiveRequests: number;
+  pauseReasons: string[];
+  index?: Array<{
+    category: string;
+    chunks: number;
+    sources: number;
+  }>;
 }
 
 const SESSION_KEY = "telegram_session_string";
@@ -101,6 +116,10 @@ const SecretsPanel: React.FC = () => {
   const [telegram, setTelegram] = useState<TelegramStatus | null>(null);
   const [tgOpen, setTgOpen] = useState(false);
 
+  // AI embedding sync
+  const [embeddingSync, setEmbeddingSync] = useState<EmbeddingSyncStatus | null>(null);
+  const [syncBusy, setSyncBusy] = useState(false);
+
   const loadSecrets = async () => {
     setLoading(true);
     setError(null);
@@ -123,9 +142,26 @@ const SecretsPanel: React.FC = () => {
     }
   };
 
+  const loadEmbeddingSyncStatus = async () => {
+    try {
+      const response = await api.get<{ success: boolean; data: EmbeddingSyncStatus }>(
+        AI_ENDPOINTS.ADMIN_SYNC_STATUS
+      );
+      setEmbeddingSync(response.data.data);
+    } catch {
+      setEmbeddingSync(null);
+    }
+  };
+
   useEffect(() => {
     loadSecrets();
     loadTelegramStatus();
+    loadEmbeddingSyncStatus();
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(loadEmbeddingSyncStatus, 15000);
+    return () => window.clearInterval(timer);
   }, []);
 
   const openEdit = (secret: SecretDescriptor) => {
@@ -187,6 +223,33 @@ const SecretsPanel: React.FC = () => {
     }
   };
 
+  const updateEmbeddingSync = async (action: "pause" | "resume" | "sync") => {
+    setSyncBusy(true);
+    setError(null);
+    try {
+      if (action === "pause") {
+        const response = await api.post<{ success: boolean; data: EmbeddingSyncStatus }>(
+          AI_ENDPOINTS.ADMIN_SYNC_PAUSE
+        );
+        setEmbeddingSync(response.data.data);
+        await loadEmbeddingSyncStatus();
+      } else if (action === "resume") {
+        const response = await api.post<{ success: boolean; data: EmbeddingSyncStatus }>(
+          AI_ENDPOINTS.ADMIN_SYNC_RESUME
+        );
+        setEmbeddingSync(response.data.data);
+        await loadEmbeddingSyncStatus();
+      } else {
+        await api.post(AI_ENDPOINTS.ADMIN_SYNC);
+        await loadEmbeddingSyncStatus();
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? "No se pudo actualizar la ingesta de embeddings");
+    } finally {
+      setSyncBusy(false);
+    }
+  };
+
   const renderTest = (key: string) => {
     const result = testResults[key];
     if (!result) return null;
@@ -206,7 +269,11 @@ const SecretsPanel: React.FC = () => {
         subtitle="Gestión de APIs externas, Telegram y configuración Ollama/RAG"
         accentColor="#4a90d9"
         actions={
-          <IconButton size="small" onClick={() => { loadSecrets(); loadTelegramStatus(); }} disabled={loading}>
+          <IconButton
+            size="small"
+            onClick={() => { loadSecrets(); loadTelegramStatus(); loadEmbeddingSyncStatus(); }}
+            disabled={loading}
+          >
             <Refresh fontSize="small" />
           </IconButton>
         }
@@ -219,6 +286,87 @@ const SecretsPanel: React.FC = () => {
           CogniThreat uses Ollama as the built-in open-source AI provider. If you change the embedding model,
           keep the same vector dimension or update backend EMBEDDING_DIM and reindex embeddings.
         </Alert>
+
+        <Paper sx={{ p: 2.5, mb: 3 }}>
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            spacing={2}
+            alignItems={{ xs: "stretch", md: "center" }}
+          >
+            <Box sx={{ flex: 1 }}>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                <Typography variant="h6">Embedding sync</Typography>
+                <Chip
+                  size="small"
+                  label={
+                    embeddingSync?.paused
+                      ? embeddingSync.manualPaused
+                        ? "Pausado"
+                        : "Pausado por chat"
+                      : "Activo"
+                  }
+                  color={embeddingSync?.paused ? "warning" : "success"}
+                  variant="outlined"
+                />
+              </Stack>
+              <Typography variant="body2" color="text.secondary">
+                La ingesta RAG se pausa automáticamente mientras el chat responde. Podés pausar el cron manualmente
+                para evitar que Ollama compita con consultas interactivas.
+              </Typography>
+              {embeddingSync?.activeInteractiveRequests ? (
+                <Typography variant="caption" color="warning.main">
+                  {embeddingSync.activeInteractiveRequests} consulta(s) de chat tienen prioridad ahora.
+                </Typography>
+              ) : null}
+              {embeddingSync?.index?.length ? (
+                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1 }}>
+                  {embeddingSync.index.map((item) => (
+                    <Chip
+                      key={item.category}
+                      size="small"
+                      label={`${item.category}: ${item.sources.toLocaleString()} fuentes`}
+                      variant="outlined"
+                    />
+                  ))}
+                </Stack>
+              ) : null}
+            </Box>
+            <Stack direction="row" spacing={1} justifyContent={{ xs: "flex-start", md: "flex-end" }}>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<Refresh />}
+                onClick={() => updateEmbeddingSync("sync")}
+                disabled={syncBusy}
+              >
+                Reindexar
+              </Button>
+              {embeddingSync?.manualPaused ? (
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="success"
+                  startIcon={<PlayArrow />}
+                  onClick={() => updateEmbeddingSync("resume")}
+                  disabled={syncBusy}
+                >
+                  Reanudar
+                </Button>
+              ) : (
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="warning"
+                  startIcon={<Pause />}
+                  onClick={() => updateEmbeddingSync("pause")}
+                  disabled={syncBusy}
+                >
+                  Pausar
+                </Button>
+              )}
+            </Stack>
+          </Stack>
+        </Paper>
 
         <TableContainer component={Paper} sx={{ mb: 3 }}>
           <Table>
