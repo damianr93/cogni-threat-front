@@ -5,6 +5,7 @@ import vulnMonitorReducer from "./slices/vulnMonitor/vulnMonitorSlice";
 import chatAiReducer from "./slices/chatAi/chatAiSlice";
 import authReducer from "./slices/auth/authSlice";
 import riskOperationsReducer from "./slices/riskOperations/riskOperationsSlice";
+import notificationsReducer from "./slices/notifications/notificationsSlice";
 
 export const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ export const store = configureStore({
     chatAi: chatAiReducer,
     auth: authReducer,
     riskOperations: riskOperationsReducer,
+    notifications: notificationsReducer,
   },
 });
 
