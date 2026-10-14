@@ -23,6 +23,7 @@ import { useAppDispatch } from "../hooks/useAppDispatch";
 import { useAppSelector } from "../hooks/useAppSelector";
 import { NAV_SECTIONS } from "../config/navigation";
 import { logout } from "../../store/slices/auth/authSlice";
+import NotificationsBell from "./NotificationsBell";
 
 const drawerWidth = 260;
 
@@ -31,7 +32,13 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-const SidebarContent: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) => {
+interface SidebarContentProps {
+  onNavigate?: () => void;
+  /** Only the desktop sidebar hosts the bell; mobile uses the AppBar one. */
+  showBell?: boolean;
+}
+
+const SidebarContent: React.FC<SidebarContentProps> = ({ onNavigate, showBell = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
@@ -92,6 +99,11 @@ const SidebarContent: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) =
             </Typography>
           </Box>
         </Box>
+        {showBell && (
+          <Box sx={{ ml: "auto" }}>
+            <NotificationsBell placement="sidebar" />
+          </Box>
+        )}
       </Toolbar>
 
       <Box sx={{ overflow: "auto", mt: 1.5, px: 1.5, flex: 1 }}>
@@ -254,7 +266,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onClose }) => {
         "& .MuiDrawer-paper": drawerPaperSx,
       }}
     >
-      <SidebarContent />
+      <SidebarContent showBell />
     </Drawer>
   );
 };

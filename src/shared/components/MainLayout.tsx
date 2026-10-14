@@ -8,10 +8,12 @@ import {
   ThemeProvider,
   Toolbar,
   Typography,
+  useMediaQuery,
 } from "@mui/material";
 import { Menu as MenuIcon, Security as SecurityIcon } from "@mui/icons-material";
 import Sidebar from "./Sidebar";
 import IpNotAllowedDialog from "./IpNotAllowedDialog";
+import NotificationsBell from "./NotificationsBell";
 import { theme } from "../../theme/theme";
 
 interface MainLayoutProps {
@@ -23,6 +25,8 @@ const DRAWER_WIDTH = 260;
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  // Must match the breakpoint Sidebar uses so exactly one bell is mounted.
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isChatRoute = location.pathname === "/chat-ai";
 
   return (
@@ -71,6 +75,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 CogniThreat
               </Typography>
             </Box>
+            {isMobile && (
+              <Box sx={{ ml: "auto" }}>
+                <NotificationsBell placement="appbar" />
+              </Box>
+            )}
           </Toolbar>
         </AppBar>
 
