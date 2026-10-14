@@ -28,6 +28,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Add, Assessment, Close, Edit, FactCheck, Inventory, Security, Speed, Timeline } from "@mui/icons-material";
+import { CIA_OPTIONS, DEFAULT_CIA, formatCia, nextCiaSelection, parseCia } from "./cia";
 import PageHeader from "../../shared/components/PageHeader";
 import { api } from "../../shared/utils/api";
 import { useAppDispatch } from "../../shared/hooks/useAppDispatch";
@@ -117,6 +118,7 @@ function generateAssetCode() {
 }
 
 const initialForm: Record<string, string> = {
+  affectedCia: DEFAULT_CIA,
   code: "",
   name: "",
   type: "INFORMATION",
@@ -658,7 +660,7 @@ function renderForm(
     );
   }
   if (kind === "risks") {
-    return <>{field("assetId", "Activo", form, update, data.assets.map((item) => ({ value: item.id, label: `${item.code} · ${item.name}` })))}{field("title", "Título", form, update)}{field("scenario", "Escenario", form, update)}{field("threat", "Amenaza", form, update)}{field("vulnerability", "Vulnerabilidad", form, update)}{scoreField("likelihood", "Probabilidad", form, update)}{scoreField("impact", "Impacto", form, update)}{field("status", "Estado", form, update, riskStatuses.map((status) => ({ value: status, label: RISK_STATUS_LABELS[status] })))}{ownerField("ownerName", "Responsable", form, update, ownerOptions)}</>;
+    return <>{field("assetId", "Activo", form, update, data.assets.map((item) => ({ value: item.id, label: `${item.code} · ${item.name}` })))}{field("title", "Título", form, update)}{field("scenario", "Escenario", form, update)}{field("threat", "Amenaza", form, update)}{field("vulnerability", "Vulnerabilidad", form, update)}{affectedCiaField(form, update)}{scoreField("likelihood", "Probabilidad", form, update)}{scoreField("impact", "Impacto", form, update)}{field("status", "Estado", form, update, riskStatuses.map((status) => ({ value: status, label: RISK_STATUS_LABELS[status] })))}{ownerField("ownerName", "Responsable", form, update, ownerOptions)}</>;
   }
   if (kind === "treatments") {
     return <>{field("riskId", "Riesgo", form, update, data.risks.map((item) => ({ value: item.id, label: item.title })))}{field("strategy", "Opción", form, update, treatmentOptions.map((option) => ({ value: option, label: TREATMENT_OPTION_LABELS[option] })))}{descriptionField("plan", "Plan", form, update)}{ownerField("responsibleName", "Responsable", form, update, ownerOptions, "responsibleUserId")}{field("dueDate", "Vencimiento", form, update, undefined, "date")}{optionalScoreField("residualLikelihood", "Probabilidad residual", form, update)}{optionalScoreField("residualImpact", "Impacto residual", form, update)}{field("status", "Estado", form, update, treatmentStatuses.map((status) => ({ value: status, label: TREATMENT_STATUS_LABELS[status] })))}</>;
@@ -696,6 +698,28 @@ function ciaField(name: string, label: string, form: Record<string, string>, upd
         <InputLabel id={`${name}-label`}>{label}</InputLabel>
         <Select labelId={`${name}-label`} label={label} value={form[name] ?? "3"} onChange={(event) => update(name, String(event.target.value))}>
           {scoreOptions.map((value) => <MenuItem key={value} value={String(value)}>{value}</MenuItem>)}
+        </Select>
+      </FormControl>
+    </Box>
+  );
+}
+
+/** Multi-select for the CIA properties a risk affects; the form stores them as a comma-separated string. */
+function affectedCiaField(form: Record<string, string>, update: (field: string, value: string) => void) {
+  const label = "CIA afectado";
+  return (
+    <Box key="affectedCia" sx={{ minWidth: 0 }}>
+      <FormControl fullWidth size="small">
+        <InputLabel id="affectedCia-label">{label}</InputLabel>
+        <Select
+          multiple
+          labelId="affectedCia-label"
+          label={label}
+          value={parseCia(form.affectedCia)}
+          onChange={(event) => update("affectedCia", nextCiaSelection(form.affectedCia, event.target.value))}
+          renderValue={(selected) => CIA_OPTIONS.filter((option) => selected.includes(option.value)).map((option) => option.label).join(", ")}
+        >
+          {CIA_OPTIONS.map((option) => <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>)}
         </Select>
       </FormControl>
     </Box>
@@ -832,7 +856,7 @@ function tableCells(kind: PageKind, row: InformationAsset | Risk | RiskTreatment
 
 function buildPayload(kind: PageKind, form: Record<string, string>): Record<string, unknown> {
   if (kind === "assets") return { code: form.code, name: form.name, type: form.type, criticality: form.criticality, confidentiality: Number(form.confidentiality), integrity: Number(form.integrity), availability: Number(form.availability), ownerName: form.ownerName, description: form.description || undefined, tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean) };
-  if (kind === "risks") return { assetId: form.assetId, title: form.title, scenario: form.scenario, threat: form.threat, vulnerability: form.vulnerability, affectedCia: ["C", "I", "A"], likelihood: Number(form.likelihood), impact: Number(form.impact), status: form.status, ownerName: form.ownerName, ownerUserId: form.ownerUserId || undefined };
+  if (kind === "risks") return { assetId: form.assetId, title: form.title, scenario: form.scenario, threat: form.threat, vulnerability: form.vulnerability, affectedCia: parseCia(form.affectedCia), likelihood: Number(form.likelihood), impact: Number(form.impact), status: form.status, ownerName: form.ownerName, ownerUserId: form.ownerUserId || undefined };
   if (kind === "treatments") return { riskId: form.riskId, strategy: form.strategy, plan: form.plan, responsibleName: form.responsibleName, responsibleUserId: form.responsibleUserId || undefined, dueDate: form.dueDate || undefined, residualLikelihood: nullableNumber(form.residualLikelihood), residualImpact: nullableNumber(form.residualImpact), status: form.status };
   if (kind === "controls") return { title: form.title, category: form.category, type: form.type, objective: form.objective, implementation: form.implementation, monitoringFrequency: form.monitoringFrequency, ownerName: form.ownerName };
   return { name: form.name, description: form.description, metricType: form.metricType, unit: form.unit, frequency: form.frequency, targetValue: Number(form.targetValue), warningValue: nullableNumber(form.warningValue), direction: form.direction, assetId: form.assetId || undefined, riskId: form.riskId || undefined, controlId: form.controlId || undefined };
@@ -845,7 +869,7 @@ function formFromRow(kind: PageKind, row: InformationAsset | Risk | RiskTreatmen
   }
   if (kind === "risks") {
     const risk = row as Risk;
-    return { assetId: risk.assetId, title: risk.title, scenario: risk.scenario, threat: risk.threat, vulnerability: risk.vulnerability, likelihood: String(risk.likelihood), impact: String(risk.impact), status: risk.status, ownerName: risk.ownerName ?? "", ownerUserId: risk.ownerUserId ?? "" };
+    return { assetId: risk.assetId, title: risk.title, scenario: risk.scenario, threat: risk.threat, vulnerability: risk.vulnerability, affectedCia: formatCia(risk.affectedCia), likelihood: String(risk.likelihood), impact: String(risk.impact), status: risk.status, ownerName: risk.ownerName ?? "", ownerUserId: risk.ownerUserId ?? "" };
   }
   if (kind === "treatments") {
     const treatment = row as RiskTreatment;
