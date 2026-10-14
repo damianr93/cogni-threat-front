@@ -20,6 +20,10 @@ proxy: {
   }
 }
   },
+  build: {
+    // The app owns an /assets route; keep bundles out of that path.
+    assetsDir: 'static',
+  },
   test: {
     environment: 'jsdom',
   }
