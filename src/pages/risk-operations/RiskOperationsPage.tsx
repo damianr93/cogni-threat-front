@@ -117,7 +117,7 @@ function generateAssetCode() {
   return `AST-${timestampPart}-${randomPart}`;
 }
 
-const initialForm: Record<string, string> = {
+export const initialForm: Record<string, string> = {
   affectedCia: DEFAULT_CIA,
   code: "",
   name: "",
@@ -705,7 +705,7 @@ function ciaField(name: string, label: string, form: Record<string, string>, upd
 }
 
 /** Multi-select for the CIA properties a risk affects; the form stores them as a comma-separated string. */
-function affectedCiaField(form: Record<string, string>, update: (field: string, value: string) => void) {
+export function affectedCiaField(form: Record<string, string>, update: (field: string, value: string) => void) {
   const label = "CIA afectado";
   return (
     <Box key="affectedCia" sx={{ minWidth: 0 }}>
@@ -854,7 +854,7 @@ function tableCells(kind: PageKind, row: InformationAsset | Risk | RiskTreatment
   return [kpi.name, `${kpi.targetValue} ${kpi.unit}`, latest ? `${latest.value} · ${new Date(latest.measuredAt).toLocaleDateString()}` : "Sin mediciones", kpi.frequency, latest?.evidenceUrl ? <a href={latest.evidenceUrl} target="_blank" rel="noreferrer">Ver URL</a> : "-"];
 }
 
-function buildPayload(kind: PageKind, form: Record<string, string>): Record<string, unknown> {
+export function buildPayload(kind: PageKind, form: Record<string, string>): Record<string, unknown> {
   if (kind === "assets") return { code: form.code, name: form.name, type: form.type, criticality: form.criticality, confidentiality: Number(form.confidentiality), integrity: Number(form.integrity), availability: Number(form.availability), ownerName: form.ownerName, description: form.description || undefined, tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean) };
   if (kind === "risks") return { assetId: form.assetId, title: form.title, scenario: form.scenario, threat: form.threat, vulnerability: form.vulnerability, affectedCia: parseCia(form.affectedCia), likelihood: Number(form.likelihood), impact: Number(form.impact), status: form.status, ownerName: form.ownerName, ownerUserId: form.ownerUserId || undefined };
   if (kind === "treatments") return { riskId: form.riskId, strategy: form.strategy, plan: form.plan, responsibleName: form.responsibleName, responsibleUserId: form.responsibleUserId || undefined, dueDate: form.dueDate || undefined, residualLikelihood: nullableNumber(form.residualLikelihood), residualImpact: nullableNumber(form.residualImpact), status: form.status };
@@ -862,7 +862,7 @@ function buildPayload(kind: PageKind, form: Record<string, string>): Record<stri
   return { name: form.name, description: form.description, metricType: form.metricType, unit: form.unit, frequency: form.frequency, targetValue: Number(form.targetValue), warningValue: nullableNumber(form.warningValue), direction: form.direction, assetId: form.assetId || undefined, riskId: form.riskId || undefined, controlId: form.controlId || undefined };
 }
 
-function formFromRow(kind: PageKind, row: InformationAsset | Risk | RiskTreatment | OperationalControl | Kpi): Record<string, string> {
+export function formFromRow(kind: PageKind, row: InformationAsset | Risk | RiskTreatment | OperationalControl | Kpi): Record<string, string> {
   if (kind === "assets") {
     const asset = row as InformationAsset;
     return { code: asset.code, name: asset.name, type: asset.type, criticality: asset.criticality, confidentiality: String(asset.confidentiality), integrity: String(asset.integrity), availability: String(asset.availability), ownerName: asset.ownerName ?? "", ownerUserId: asset.ownerUserId ?? "", description: asset.description ?? "", tags: asset.tags.join(", ") };
